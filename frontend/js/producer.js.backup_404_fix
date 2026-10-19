@@ -1,0 +1,3001 @@
+﻿/*
+ * =========================================================
+ * MODERN FARMS
+ * PRODUCER DASHBOARD CONTROLLER
+ * frontend/js/producer.js
+ * =========================================================
+ */
+
+(function () {
+
+    "use strict";
+
+
+    let currentUser = null;
+
+    let currentFarm = null;
+
+    let products = [];
+
+    let orders = [];
+
+
+    const API = window.ModernFarmsAPI;
+
+
+    /* =====================================================
+       INITIALIZATION
+    ===================================================== */
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initProducerDashboard
+    );
+
+
+    async function initProducerDashboard() {
+
+        try {
+
+            if (!API) {
+
+                throw new Error(
+                    "Modern Farms API client is not loaded."
+                );
+
+            }
+
+
+            if (!API.isAuthenticated()) {
+
+                window.location.replace(
+                    "/frontend/pages/login.html"
+                );
+
+                return;
+
+            }
+
+
+            await loadUser();
+
+
+            await Promise.all([
+                loadFarm(),
+                loadProducts(),
+                loadOrders()
+            ]);
+
+
+            renderDashboard();
+
+
+            startAutoRefresh();
+
+
+        } catch (error) {
+
+            console.error(
+                "Producer dashboard initialization failed:",
+                error
+            );
+
+            showError(
+                error.message ||
+                "Unable to load producer dashboard."
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       USER
+    ===================================================== */
+
+    async function loadUser() {
+
+        const response =
+            await API.me();
+
+
+        currentUser =
+            response?.user ||
+            response?.data?.user ||
+            API.getCurrentUser();
+
+
+        if (!currentUser) {
+
+            throw new Error(
+                "Unable to load producer account."
+            );
+
+        }
+
+
+        const role =
+            String(
+                currentUser.role || ""
+            )
+                .toLowerCase()
+                .trim();
+
+
+        if (role !== "producer") {
+
+            if (role === "customer") {
+
+                window.location.replace(
+                    "/frontend/pages/customer-dashboard.html"
+                );
+
+                return;
+
+            }
+
+
+            throw new Error(
+                "This dashboard is only available to producers."
+            );
+
+        }
+
+
+        setText(
+            "producerName",
+            currentUser.full_name ||
+            currentUser.name ||
+            "Producer"
+        );
+
+
+        setText(
+            "profileName",
+            currentUser.full_name ||
+            "Producer"
+        );
+
+
+        setText(
+            "profileFullName",
+            currentUser.full_name ||
+            "-"
+        );
+
+
+        setText(
+            "profileEmail",
+            currentUser.email ||
+            "-"
+        );
+
+
+        setText(
+            "profilePhone",
+            currentUser.phone ||
+            "Not provided"
+        );
+
+
+        const initials =
+            getInitials(
+                currentUser.full_name ||
+                currentUser.email ||
+                "PR"
+            );
+
+
+        setText(
+            "accountInitials",
+            initials
+        );
+
+
+        setText(
+            "profileInitials",
+            initials
+        );
+
+
+        setText(
+            "accountStatus",
+            currentUser.status ||
+            "Active"
+        );
+
+    }
+
+
+    /* =====================================================
+       FARM
+    ===================================================== */
+
+    async function loadFarm() {
+
+        try {
+
+            const response =
+                await API.getFarms();
+
+
+            const farms =
+                response?.farms ||
+                response?.data ||
+                [];
+
+
+            if (!Array.isArray(farms) || !farms.length) {
+
+                return;
+
+            }
+
+
+            currentFarm =
+                farms.find(
+                    farm =>
+                        Number(farm.producer_id) ===
+                        Number(currentUser.id)
+                ) ||
+                farms[0];
+
+
+            renderFarm();
+
+        } catch (error) {
+
+            console.warn(
+                "Farm information could not be loaded:",
+                error
+            );
+
+        }
+
+    }
+
+
+    function renderFarm() {
+
+        if (!currentFarm) {
+            return;
+        }
+
+
+        const name =
+            currentFarm.farm_name ||
+            "Your Farm";
+
+
+        const location =
+            [
+                currentFarm.location,
+                currentFarm.county
+            ]
+                .filter(Boolean)
+                .join(", ") ||
+            "Kenya";
+
+
+        const size =
+            Number(
+                currentFarm.farm_size || 0
+            );
+
+
+        const unit =
+            currentFarm.farm_size_unit ||
+            "acres";
+
+
+        setText(
+            "sidebarFarmName",
+            name
+        );
+
+
+        setText(
+            "sidebarFarmLocation",
+            location
+        );
+
+
+        setText(
+            "sidebarFarmSize",
+            `${formatNumber(size)} ${unit}`
+        );
+
+
+        setText(
+            "farmName",
+            name
+        );
+
+
+        setText(
+            "farmLocation",
+            location
+        );
+
+
+        setText(
+            "farmSize",
+            `${formatNumber(size)} ${unit}`
+        );
+
+
+        setText(
+            "farmPhone",
+            currentFarm.phone ||
+            currentUser.phone ||
+            "Not provided"
+        );
+
+    }
+
+
+    /* =====================================================
+       PRODUCTS
+    ===================================================== */
+
+    async function loadProducts() {
+
+        try {
+
+            const response =
+                await API.getMyProducts();
+
+
+            products =
+                response?.products ||
+                response?.inventory ||
+                response?.data ||
+                [];
+
+
+            if (!Array.isArray(products)) {
+
+                products = [];
+
+            }
+
+
+            renderDashboard();
+
+
+        } catch (firstError) {
+
+            console.warn(
+                "getMyProducts failed. Trying inventory:",
+                firstError
+            );
+
+
+            try {
+
+                const response =
+                    await API.getInventory();
+
+
+                products =
+                    response?.inventory ||
+                    response?.products ||
+                    response?.data ||
+                    [];
+
+
+                if (!Array.isArray(products)) {
+
+                    products = [];
+
+                }
+
+
+                renderDashboard();
+
+            } catch (secondError) {
+
+                console.error(
+                    "Products could not be loaded:",
+                    secondError
+                );
+
+                products = [];
+
+                showError(
+                    "Unable to load your products."
+                );
+
+            }
+
+        }
+
+    }
+
+
+    /* =====================================================
+       ORDERS
+    ===================================================== */
+
+    async function loadOrders() {
+
+        try {
+
+            const response =
+                await API.getProducerOrders();
+
+
+            orders =
+                response?.orders ||
+                response?.data ||
+                [];
+
+
+            if (!Array.isArray(orders)) {
+
+                orders = [];
+
+            }
+
+
+            renderDashboard();
+
+        } catch (error) {
+
+            console.warn(
+                "Producer orders could not be loaded:",
+                error
+            );
+
+            orders = [];
+
+            renderDashboard();
+
+        }
+
+    }
+
+
+    /* =====================================================
+       DASHBOARD
+    ===================================================== */
+
+    function renderDashboard() {
+
+        renderStatistics();
+
+        renderInventoryOverview();
+
+        renderRecentOrders();
+
+        renderProductsTable();
+
+        renderManagementProducts();
+
+        renderOrdersPage();
+
+        renderAnalytics();
+
+        renderMonthlySummary();
+
+        renderCustomers();
+
+    }
+
+
+    function getActiveProducts() {
+
+        return products.filter(
+            product =>
+                String(
+                    product.status ||
+                    "available"
+                )
+                    .toLowerCase() !==
+                "inactive"
+        );
+
+    }
+
+
+    function renderStatistics() {
+
+        const activeProducts =
+            getActiveProducts();
+
+
+        const totalInventory =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    Number(
+                        product.quantity_remaining ??
+                        product.quantity ??
+                        product.stock ??
+                        0
+                    ),
+                0
+            );
+
+
+        const totalSold =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    Number(
+                        product.quantity_sold ||
+                        0
+                    ),
+                0
+            );
+
+
+        const pending =
+            orders.filter(
+                order =>
+                    normalizeStatus(
+                        order.status
+                    ) === "pending"
+            ).length;
+
+
+        const revenue =
+            calculateRevenue();
+
+
+        setText(
+            "totalProducts",
+            activeProducts.length
+        );
+
+
+        setText(
+            "totalInventory",
+            formatNumber(totalInventory)
+        );
+
+
+        setText(
+            "totalOrders",
+            orders.length
+        );
+
+
+        setText(
+            "pendingOrders",
+            pending
+        );
+
+
+        setText(
+            "totalRevenue",
+            formatCurrency(revenue)
+        );
+
+
+        setText(
+            "inventoryUnitLabel",
+            getInventoryUnitLabel()
+        );
+
+
+        const badge =
+            document.getElementById(
+                "sidebarOrderBadge"
+            );
+
+
+        if (badge) {
+
+            badge.textContent =
+                pending;
+
+
+            badge.hidden =
+                pending === 0;
+
+        }
+
+
+        const notificationBadge =
+            document.getElementById(
+                "notificationBadge"
+            );
+
+
+        if (notificationBadge) {
+
+            notificationBadge.textContent =
+                pending;
+
+
+            notificationBadge.hidden =
+                pending === 0;
+
+        }
+
+    }
+
+
+    /* =====================================================
+       INVENTORY OVERVIEW
+    ===================================================== */
+
+    function renderInventoryOverview() {
+
+        const available =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    Number(
+                        product.quantity_remaining ??
+                        product.quantity ??
+                        product.stock ??
+                        0
+                    ),
+                0
+            );
+
+
+        const sold =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    Number(
+                        product.quantity_sold ||
+                        0
+                    ),
+                0
+            );
+
+
+        const posted =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    Number(
+                        product.quantity_posted ||
+                        0
+                    ),
+                0
+            );
+
+
+        const percent =
+            posted > 0
+                ? Math.round(
+                    (available / posted) * 100
+                )
+                : 100;
+
+
+        const lowStock =
+            products.filter(
+                product =>
+                    Number(
+                        product.quantity_remaining ??
+                        product.quantity ??
+                        0
+                    ) <= 10
+            ).length;
+
+
+        setText(
+            "inventoryPercent",
+            `${Math.max(
+                0,
+                Math.min(100, percent)
+            )}%`
+        );
+
+
+        setText(
+            "availableInventory",
+            formatNumber(available)
+        );
+
+
+        setText(
+            "stockInventory",
+            formatNumber(available)
+        );
+
+
+        setText(
+            "soldInventory",
+            formatNumber(sold)
+        );
+
+
+        setText(
+            "lowStockProducts",
+            lowStock
+        );
+
+
+        const availableUnit =
+            document.getElementById(
+                "availableUnit"
+            );
+
+
+        if (availableUnit) {
+
+            availableUnit.textContent =
+                getPrimaryUnit();
+
+        }
+
+
+        const donut =
+            document.querySelector(
+                ".donut"
+            );
+
+
+        if (donut) {
+
+            const degrees =
+                Math.max(
+                    0,
+                    Math.min(
+                        360,
+                        percent * 3.6
+                    )
+                );
+
+
+            donut.style.background =
+                `conic-gradient(
+                    #68be42 0deg,
+                    #68be42 ${degrees}deg,
+                    #e8f1e9 ${degrees}deg,
+                    #e8f1e9 360deg
+                )`;
+
+        }
+
+    }
+
+
+    /* =====================================================
+       PRODUCTS TABLE
+    ===================================================== */
+
+    function renderProductsTable() {
+
+        const container =
+            document.getElementById(
+                "productsTableBody"
+            );
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!products.length) {
+
+            container.innerHTML = `
+                <tr>
+                    <td
+                        colspan="7"
+                        class="table-loading"
+                    >
+                        No products have been added yet.
+                    </td>
+                </tr>
+            `;
+
+            setText(
+                "productsFooter",
+                "Showing 0 products"
+            );
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            products
+                .map(
+                    product =>
+                        createProductRow(
+                            product
+                        )
+                )
+                .join("");
+
+
+        setText(
+            "productsFooter",
+            `Showing 1 to ${products.length} of ${products.length} products`
+        );
+
+    }
+
+
+    function createProductRow(product) {
+
+        const id =
+            Number(product.id) || 0;
+
+
+        const name =
+            product.name ||
+            product.product_name ||
+            "Product";
+
+
+        const category =
+            product.category ||
+            "General";
+
+
+        const price =
+            Number(product.price || 0);
+
+
+        const available =
+            Number(
+                product.quantity_remaining ??
+                product.quantity ??
+                product.stock ??
+                0
+            );
+
+
+        const sold =
+            Number(
+                product.quantity_sold ||
+                0
+            );
+
+
+        const unit =
+            product.unit ||
+            "unit";
+
+
+        const status =
+            product.status ||
+            "available";
+
+
+        return `
+
+            <tr>
+
+                <td>
+
+                    <div class="product-name">
+
+                        <div class="product-thumb">
+                            ${getProductIcon(category)}
+                        </div>
+
+                        <div>
+
+                            <strong>
+                                ${escapeHtml(name)}
+                            </strong>
+
+                            <small>
+                                ${escapeHtml(
+                                    product.description ||
+                                    "Farm product"
+                                )}
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </td>
+
+
+                <td>
+
+                    <span class="category-pill">
+                        ${escapeHtml(category)}
+                    </span>
+
+                </td>
+
+
+                <td>
+
+                    <strong>
+                        ${formatCurrency(price)}
+                    </strong>
+
+                    <small>
+                        / ${escapeHtml(unit)}
+                    </small>
+
+                </td>
+
+
+                <td>
+                    <strong>
+                        ${formatNumber(available)}
+                    </strong>
+                    <small>
+                        ${escapeHtml(unit)}
+                    </small>
+                </td>
+
+
+                <td>
+
+                    <strong>
+                        ${formatNumber(sold)}
+                    </strong>
+
+                    <small>
+                        ${escapeHtml(unit)}
+                    </small>
+
+                </td>
+
+
+                <td>
+
+                    <span class="status-pill">
+                        ${escapeHtml(
+                            capitalize(status)
+                        )}
+                    </span>
+
+                </td>
+
+
+                <td>
+
+                    <div class="action-buttons">
+
+                        <button
+                            class="icon-button edit"
+                            title="Edit"
+                            onclick="editProduct(${id})"
+                        >
+                            ✎
+                        </button>
+
+                        <button
+                            class="icon-button copy"
+                            title="Duplicate"
+                            onclick="duplicateProduct(${id})"
+                        >
+                            ⧉
+                        </button>
+
+                        <button
+                            class="icon-button delete"
+                            title="Deactivate"
+                            onclick="deleteProduct(${id})"
+                        >
+                            🗑
+                        </button>
+
+                    </div>
+
+                </td>
+
+            </tr>
+
+        `;
+
+    }
+
+
+    /* =====================================================
+       MANAGEMENT PRODUCTS
+    ===================================================== */
+
+    function renderManagementProducts() {
+
+        const container =
+            document.getElementById(
+                "productsManagement"
+            );
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!products.length) {
+
+            container.innerHTML = `
+                <div class="dashboard-card">
+                    <div class="empty-state">
+                        <div class="empty-icon">🌱</div>
+                        <h3>No products yet</h3>
+                        <p>Add your first farm product.</p>
+                    </div>
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            products.map(
+                product => {
+
+                    const id =
+                        Number(product.id);
+
+
+                    const available =
+                        Number(
+                            product.quantity_remaining ??
+                            product.quantity ??
+                            0
+                        );
+
+
+                    return `
+
+                        <article
+                            class="management-product"
+                        >
+
+                            <div
+                                class="product-thumb"
+                            >
+                                ${getProductIcon(
+                                    product.category
+                                )}
+                            </div>
+
+                            <h3>
+                                ${escapeHtml(
+                                    product.name ||
+                                    "Product"
+                                )}
+                            </h3>
+
+                            <span
+                                class="category-pill"
+                            >
+                                ${escapeHtml(
+                                    product.category ||
+                                    "General"
+                                )}
+                            </span>
+
+                            <p>
+                                ${escapeHtml(
+                                    product.description ||
+                                    "No description."
+                                )}
+                            </p>
+
+                            <div
+                                class="management-meta"
+                            >
+
+                                <div>
+                                    <span>Price</span>
+                                    <strong>
+                                        ${formatCurrency(
+                                            product.price
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Available</span>
+                                    <strong>
+                                        ${formatNumber(
+                                            available
+                                        )}
+                                        ${escapeHtml(
+                                            product.unit ||
+                                            "unit"
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Sold</span>
+                                    <strong>
+                                        ${formatNumber(
+                                            product.quantity_sold ||
+                                            0
+                                        )}
+                                    </strong>
+                                </div>
+
+                            </div>
+
+
+                            <div
+                                class="management-actions"
+                            >
+
+                                <button
+                                    class="secondary-button"
+                                    onclick="editProduct(${id})"
+                                >
+                                    Edit
+                                </button>
+
+                                <button
+                                    class="secondary-button"
+                                    onclick="deleteProduct(${id})"
+                                >
+                                    Deactivate
+                                </button>
+
+                            </div>
+
+                        </article>
+
+                    `;
+
+                }
+            ).join("");
+
+    }
+
+
+    /* =====================================================
+       RECENT ORDERS
+    ===================================================== */
+
+    function renderRecentOrders() {
+
+        const container =
+            document.getElementById(
+                "recentOrders"
+            );
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!orders.length) {
+
+            container.innerHTML = `
+
+                <div class="empty-state">
+
+                    <div class="empty-icon">
+                        🛒
+                    </div>
+
+                    <h3>
+                        No orders yet
+                    </h3>
+
+                    <p>
+                        You don't have any orders
+                        at the moment.
+                    </p>
+
+                </div>
+
+            `;
+
+            return;
+
+        }
+
+
+        const recent =
+            orders.slice(0, 3);
+
+
+        container.innerHTML =
+            recent.map(
+                order =>
+                    createRecentOrder(
+                        order
+                    )
+            ).join("");
+
+    }
+
+
+    function createRecentOrder(order) {
+
+        const id =
+            Number(order.id) || 0;
+
+
+        const status =
+            normalizeStatus(
+                order.status ||
+                "pending"
+            );
+
+
+        const quantity =
+            Number(
+                order.quantity ||
+                order.quantity_ordered ||
+                1
+            );
+
+
+        return `
+
+            <div
+                style="
+                    width:100%;
+                    padding:12px 16px;
+                    border-bottom:1px solid #edf1ee;
+                "
+            >
+
+                <strong>
+                    Order #${id}
+                </strong>
+
+                <div
+                    style="
+                        display:flex;
+                        justify-content:space-between;
+                        margin-top:7px;
+                        color:#6d7d75;
+                        font-size:11px;
+                    "
+                >
+
+                    <span>
+                        ${quantity} units
+                    </span>
+
+                    <span class="order-status">
+                        ${capitalize(status)}
+                    </span>
+
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    /* =====================================================
+       ORDERS PAGE
+    ===================================================== */
+
+    function renderOrdersPage() {
+
+        const container =
+            document.getElementById(
+                "ordersManagement"
+            );
+
+
+        if (!container) {
+            return;
+        }
+
+
+        if (!orders.length) {
+
+            container.innerHTML = `
+
+                <div class="dashboard-card">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            🛒
+                        </div>
+
+                        <h3>
+                            No customer orders yet
+                        </h3>
+
+                        <p>
+                            New customer orders will
+                            appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            `;
+
+            return;
+
+        }
+
+
+        container.innerHTML =
+            orders.map(
+                order => {
+
+                    const id =
+                        Number(order.id) || 0;
+
+
+                    const status =
+                        normalizeStatus(
+                            order.status
+                        );
+
+
+                    return `
+
+                        <div
+                            class="order-row"
+                        >
+
+                            <div>
+
+                                <div class="order-title">
+                                    Order #${id}
+                                </div>
+
+                                <div
+                                    class="order-meta"
+                                >
+                                    Quantity:
+                                    ${Number(
+                                        order.quantity ||
+                                        order.quantity_ordered ||
+                                        1
+                                    )}
+                                </div>
+
+                            </div>
+
+
+                            <span
+                                class="order-status"
+                            >
+                                ${capitalize(
+                                    status
+                                )}
+                            </span>
+
+
+                            <strong>
+                                ${formatCurrency(
+                                    getOrderTotal(
+                                        order
+                                    )
+                                )}
+                            </strong>
+
+
+                            <div
+                                class="order-actions"
+                            >
+
+                                ${
+                                    status === "pending"
+                                    ? `
+                                        <button
+                                            onclick="
+                                                changeOrderStatus(
+                                                    ${id},
+                                                    'accepted'
+                                                )
+                                            "
+                                            style="
+                                                background:#e5f5e8;
+                                                color:#147238;
+                                            "
+                                        >
+                                            Accept
+                                        </button>
+
+                                        <button
+                                            onclick="
+                                                changeOrderStatus(
+                                                    ${id},
+                                                    'rejected'
+                                                )
+                                            "
+                                            style="
+                                                background:#ffe8e5;
+                                                color:#c43c2d;
+                                            "
+                                        >
+                                            Reject
+                                        </button>
+                                    `
+                                    : ""
+                                }
+
+                                ${
+                                    status === "accepted"
+                                    ? `
+                                        <button
+                                            onclick="
+                                                changeOrderStatus(
+                                                    ${id},
+                                                    'completed'
+                                                )
+                                            "
+                                            style="
+                                                background:#e6f1fb;
+                                                color:#246d9e;
+                                            "
+                                        >
+                                            Complete
+                                        </button>
+                                    `
+                                    : ""
+                                }
+
+                            </div>
+
+                        </div>
+
+                    `;
+
+                }
+            ).join("");
+
+    }
+
+
+    /* =====================================================
+       ANALYTICS
+    ===================================================== */
+
+    function renderAnalytics() {
+
+        const inventoryValue =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    (
+                        Number(
+                            product.price || 0
+                        ) *
+                        Number(
+                            product.quantity_remaining ??
+                            product.quantity ??
+                            0
+                        )
+                    ),
+                0
+            );
+
+
+        const sold =
+            products.reduce(
+                (sum, product) =>
+                    sum +
+                    Number(
+                        product.quantity_sold ||
+                        0
+                    ),
+                0
+            );
+
+
+        const revenue =
+            calculateRevenue();
+
+
+        setText(
+            "analyticsInventoryValue",
+            formatCurrency(
+                inventoryValue
+            )
+        );
+
+
+        setText(
+            "analyticsSold",
+            formatNumber(sold)
+        );
+
+
+        setText(
+            "analyticsProducts",
+            getActiveProducts().length
+        );
+
+
+        setText(
+            "analyticsRevenue",
+            formatCurrency(revenue)
+        );
+
+
+        setText(
+            "inventoryValue",
+            formatCurrency(
+                inventoryValue
+            )
+        );
+
+
+        setBar(
+            "inventoryBar",
+            products.length
+                ? 100
+                : 0
+        );
+
+
+        setBar(
+            "soldBar",
+            sold > 0
+                ? Math.min(100, sold * 5)
+                : 0
+        );
+
+
+        setBar(
+            "ordersBar",
+            orders.length > 0
+                ? Math.min(
+                    100,
+                    orders.length * 10
+                )
+                : 0
+        );
+
+    }
+
+
+    /* =====================================================
+       MONTHLY SUMMARY
+    ===================================================== */
+
+    function renderMonthlySummary() {
+
+        const now =
+            new Date();
+
+
+        const month =
+            now.getMonth();
+
+
+        const year =
+            now.getFullYear();
+
+
+        const monthProducts =
+            products.filter(
+                product => {
+
+                    const date =
+                        parseDate(
+                            product.created_at
+                        );
+
+                    return (
+                        date &&
+                        date.getMonth() === month &&
+                        date.getFullYear() === year
+                    );
+
+                }
+            ).length;
+
+
+        const monthOrders =
+            orders.filter(
+                order => {
+
+                    const date =
+                        parseDate(
+                            order.created_at ||
+                            order.order_date ||
+                            order.date
+                        );
+
+                    return (
+                        date &&
+                        date.getMonth() === month &&
+                        date.getFullYear() === year
+                    );
+
+                }
+            ).length;
+
+
+        setText(
+            "monthProducts",
+            monthProducts
+        );
+
+
+        setText(
+            "monthOrders",
+            monthOrders
+        );
+
+
+        setText(
+            "monthRevenue",
+            formatCurrency(
+                calculateRevenue()
+            )
+        );
+
+    }
+
+
+    /* =====================================================
+       CUSTOMERS
+    ===================================================== */
+
+    function renderCustomers() {
+
+        const container =
+            document.getElementById(
+                "customersContent"
+            );
+
+
+        if (!container) {
+            return;
+        }
+
+
+        const customers =
+            new Set();
+
+
+        orders.forEach(
+            order => {
+
+                const email =
+                    order.customer_email ||
+                    order.customer?.email ||
+                    order.email;
+
+
+                if (email) {
+                    customers.add(email);
+                }
+
+            }
+        );
+
+
+        if (!customers.size) {
+            return;
+        }
+
+
+        container.innerHTML = `
+
+            <div style="padding:25px">
+
+                <h3>
+                    ${customers.size}
+                    Customer${customers.size === 1 ? "" : "s"}
+                </h3>
+
+                <p style="color:#6d7d75">
+                    Customers who have interacted
+                    with your farm through orders.
+                </p>
+
+            </div>
+
+        `;
+
+    }
+
+
+    /* =====================================================
+       ADD PRODUCT
+    ===================================================== */
+
+    async function addProduct(event) {
+
+        event.preventDefault();
+
+
+        const name =
+            getValue(
+                "productName"
+            );
+
+
+        const category =
+            getValue(
+                "productCategory"
+            );
+
+
+        const price =
+            Number(
+                getValue(
+                    "productPrice"
+                )
+            );
+
+
+        const unit =
+            getValue(
+                "productUnit"
+            );
+
+
+        const quantity =
+            Number(
+                getValue(
+                    "productQuantity"
+                )
+            );
+
+
+        const description =
+            getValue(
+                "productDescription"
+            );
+
+
+        if (!name) {
+
+            showError(
+                "Enter a product name."
+            );
+
+            return;
+
+        }
+
+
+        if (!category) {
+
+            showError(
+                "Select a product category."
+            );
+
+            return;
+
+        }
+
+
+        if (!Number.isFinite(price) || price <= 0) {
+
+            showError(
+                "Enter a valid product price."
+            );
+
+            return;
+
+        }
+
+
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+
+            showError(
+                "Enter a valid product quantity."
+            );
+
+            return;
+
+        }
+
+
+        if (!currentFarm?.id) {
+
+            showError(
+                "Your producer farm could not be identified."
+            );
+
+            return;
+
+        }
+
+
+        const payload = {
+
+            farm_id:
+                Number(
+                    currentFarm.id
+                ),
+
+            name,
+
+            category,
+
+            description,
+
+            price,
+
+            unit,
+
+            quantity_posted:
+                quantity
+
+        };
+
+
+        try {
+
+            setFormLoading(true);
+
+
+            await API.createProduct(
+                payload
+            );
+
+
+            showSuccess(
+                "Product added successfully."
+            );
+
+
+            closeProductModal();
+
+
+            document
+                .getElementById(
+                    "addProductForm"
+                )
+                ?.reset();
+
+
+            await loadProducts();
+
+
+        } catch (error) {
+
+            console.error(
+                "Add product error:",
+                error
+            );
+
+
+            showError(
+                error.message ||
+                "Unable to add product."
+            );
+
+        } finally {
+
+            setFormLoading(false);
+
+        }
+
+    }
+
+
+    /* =====================================================
+       DELETE / DEACTIVATE
+    ===================================================== */
+
+    async function deleteProduct(
+        productId
+    ) {
+
+        const product =
+            products.find(
+                item =>
+                    Number(item.id) ===
+                    Number(productId)
+            );
+
+
+        if (!product) {
+            return;
+        }
+
+
+        const confirmed =
+            window.confirm(
+                `Deactivate "${product.name}"?`
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        try {
+
+            await API.deleteProduct(
+                productId
+            );
+
+
+            showSuccess(
+                "Product deactivated successfully."
+            );
+
+
+            await loadProducts();
+
+
+        } catch (error) {
+
+            console.error(
+                "Product deactivation error:",
+                error
+            );
+
+
+            showError(
+                error.message ||
+                "Unable to deactivate product."
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       EDIT PRODUCT
+    ===================================================== */
+
+    function editProduct(
+        productId
+    ) {
+
+        const product =
+            products.find(
+                item =>
+                    Number(item.id) ===
+                    Number(productId)
+            );
+
+
+        if (!product) {
+            return;
+        }
+
+
+        const newPrice =
+            window.prompt(
+                `Update price for ${product.name}:`,
+                product.price
+            );
+
+
+        if (newPrice === null) {
+            return;
+        }
+
+
+        const price =
+            Number(newPrice);
+
+
+        if (!Number.isFinite(price) || price <= 0) {
+
+            showError(
+                "Enter a valid price."
+            );
+
+            return;
+
+        }
+
+
+        updateProductPrice(
+            product.id,
+            price,
+            product
+        );
+
+    }
+
+
+    async function updateProductPrice(
+        productId,
+        price,
+        product
+    ) {
+
+        try {
+
+            await API.updateProduct(
+                productId,
+                {
+
+                    name:
+                        product.name,
+
+                    category:
+                        product.category,
+
+                    description:
+                        product.description,
+
+                    price,
+
+                    unit:
+                        product.unit,
+
+                    quantity_posted:
+                        product.quantity_posted
+
+                }
+            );
+
+
+            showSuccess(
+                "Product updated successfully."
+            );
+
+
+            await loadProducts();
+
+
+        } catch (error) {
+
+            console.error(
+                "Update product error:",
+                error
+            );
+
+
+            showError(
+                error.message ||
+                "Unable to update product."
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       DUPLICATE
+    ===================================================== */
+
+    function duplicateProduct(
+        productId
+    ) {
+
+        const product =
+            products.find(
+                item =>
+                    Number(item.id) ===
+                    Number(productId)
+            );
+
+
+        if (!product) {
+            return;
+        }
+
+
+        openAddProduct();
+
+
+        setValue(
+            "productName",
+            `${product.name} Copy`
+        );
+
+
+        setValue(
+            "productCategory",
+            product.category ||
+            ""
+        );
+
+
+        setValue(
+            "productPrice",
+            product.price ||
+            ""
+        );
+
+
+        setValue(
+            "productUnit",
+            product.unit ||
+            "kg"
+        );
+
+
+        setValue(
+            "productQuantity",
+            product.quantity_remaining ||
+            1
+        );
+
+
+        setValue(
+            "productDescription",
+            product.description ||
+            ""
+        );
+
+    }
+
+
+    /* =====================================================
+       ORDER STATUS
+    ===================================================== */
+
+    async function changeOrderStatus(
+        orderId,
+        status
+    ) {
+
+        try {
+
+            if (
+                typeof API.updateOrderStatus !==
+                "function"
+            ) {
+
+                throw new Error(
+                    "Order status API is not available yet."
+                );
+
+            }
+
+
+            await API.updateOrderStatus(
+                orderId,
+                status
+            );
+
+
+            showSuccess(
+                `Order marked as ${status}.`
+            );
+
+
+            await loadOrders();
+
+
+        } catch (error) {
+
+            console.error(
+                "Order update error:",
+                error
+            );
+
+
+            showError(
+                error.message ||
+                "Unable to update order."
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       NAVIGATION
+    ===================================================== */
+
+    window.showSection =
+        function (
+            sectionId,
+            button
+        ) {
+
+            document
+                .querySelectorAll(
+                    ".dashboard-section"
+                )
+                .forEach(
+                    section => {
+
+                        section.classList.toggle(
+                            "hidden-section",
+                            section.id !==
+                            sectionId
+                        );
+
+                    }
+                );
+
+
+            document
+                .querySelectorAll(
+                    ".nav-item"
+                )
+                .forEach(
+                    nav => {
+
+                        nav.classList.toggle(
+                            "active",
+                            nav.dataset.section ===
+                            sectionId
+                        );
+
+                    }
+                );
+
+
+            if (
+                sectionId ===
+                "products"
+            ) {
+
+                renderManagementProducts();
+
+            }
+
+
+            if (
+                sectionId ===
+                "orders"
+            ) {
+
+                renderOrdersPage();
+
+            }
+
+
+            window.scrollTo({
+                top: 0,
+                behavior: "smooth"
+            });
+
+        };
+
+
+    /* =====================================================
+       PRODUCT MODAL
+    ===================================================== */
+
+    window.openAddProduct =
+        function () {
+
+            const modal =
+                document.getElementById(
+                    "productModal"
+                );
+
+
+            if (modal) {
+
+                modal.hidden =
+                    false;
+
+                document.body.style.overflow =
+                    "hidden";
+
+            }
+
+        };
+
+
+    window.closeProductModal =
+        function () {
+
+            const modal =
+                document.getElementById(
+                    "productModal"
+                );
+
+
+            if (modal) {
+
+                modal.hidden =
+                    true;
+
+                document.body.style.overflow =
+                    "";
+
+            }
+
+        };
+
+
+    /* =====================================================
+       NOTIFICATIONS
+    ===================================================== */
+
+    window.showNotifications =
+        function () {
+
+            const pending =
+                orders.filter(
+                    order =>
+                        normalizeStatus(
+                            order.status
+                        ) ===
+                        "pending"
+                ).length;
+
+
+            if (pending > 0) {
+
+                showSuccess(
+                    `You have ${pending} pending order${pending === 1 ? "" : "s"}.`
+                );
+
+            } else {
+
+                showSuccess(
+                    "You have no new notifications."
+                );
+
+            }
+
+        };
+
+
+    /* =====================================================
+       LOGOUT
+    ===================================================== */
+
+    window.logout =
+        async function () {
+
+            try {
+
+                await API.logout();
+
+            } finally {
+
+                window.location.replace(
+                    "/frontend/pages/login.html"
+                );
+
+            }
+
+        };
+
+
+    /* =====================================================
+       REFRESH
+    ===================================================== */
+
+    function startAutoRefresh() {
+
+        const toggle =
+            document.getElementById(
+                "autoRefreshToggle"
+            );
+
+
+        setInterval(
+            async () => {
+
+                if (
+                    toggle &&
+                    !toggle.checked
+                ) {
+
+                    return;
+
+                }
+
+
+                try {
+
+                    await loadProducts();
+
+                    await loadOrders();
+
+                } catch (error) {
+
+                    console.warn(
+                        "Auto refresh failed:",
+                        error
+                    );
+
+                }
+
+            },
+            60000
+        );
+
+    }
+
+
+    /* =====================================================
+       HELPERS
+    ===================================================== */
+
+    function setText(
+        id,
+        value
+    ) {
+
+        const element =
+            document.getElementById(
+                id
+            );
+
+
+        if (element) {
+
+            element.textContent =
+                value;
+
+        }
+
+    }
+
+
+    function setValue(
+        id,
+        value
+    ) {
+
+        const element =
+            document.getElementById(
+                id
+            );
+
+
+        if (element) {
+
+            element.value =
+                value;
+
+        }
+
+    }
+
+
+    function getValue(
+        id
+    ) {
+
+        const element =
+            document.getElementById(
+                id
+            );
+
+
+        return element
+            ? element.value.trim()
+            : "";
+
+    }
+
+
+    function setBar(
+        id,
+        value
+    ) {
+
+        const element =
+            document.getElementById(
+                id
+            );
+
+
+        if (element) {
+
+            element.style.width =
+                `${Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        value
+                    )
+                )}%`;
+
+        }
+
+    }
+
+
+    function getInitials(
+        name
+    ) {
+
+        return String(name)
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map(
+                part =>
+                    part.charAt(0)
+                        .toUpperCase()
+            )
+            .join("");
+
+    }
+
+
+    function normalizeStatus(
+        status
+    ) {
+
+        return String(
+            status ||
+            "pending"
+        )
+            .toLowerCase()
+            .trim();
+
+    }
+
+
+    function capitalize(
+        value
+    ) {
+
+        const text =
+            String(value || "");
+
+
+        return text.charAt(0)
+            .toUpperCase() +
+            text.slice(1);
+
+    }
+
+
+    function formatNumber(
+        value
+    ) {
+
+        return Number(
+            value || 0
+        ).toLocaleString(
+            "en-KE",
+            {
+                maximumFractionDigits: 2
+            }
+        );
+
+    }
+
+
+    function formatCurrency(
+        value
+    ) {
+
+        return new Intl.NumberFormat(
+            "en-KE",
+            {
+                style: "currency",
+                currency: "KES",
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }
+        ).format(
+            Number(value || 0)
+        );
+
+    }
+
+
+    function calculateRevenue() {
+
+        let revenue = 0;
+
+
+        products.forEach(
+            product => {
+
+                const sold =
+                    Number(
+                        product.quantity_sold ||
+                        0
+                    );
+
+
+                const price =
+                    Number(
+                        product.price ||
+                        0
+                    );
+
+
+                revenue +=
+                    sold * price;
+
+            }
+        );
+
+
+        orders.forEach(
+            order => {
+
+                const status =
+                    normalizeStatus(
+                        order.status
+                    );
+
+
+                if (
+                    status === "completed" &&
+                    order.total
+                ) {
+
+                    revenue +=
+                        Number(
+                            order.total
+                        );
+
+                }
+
+            }
+        );
+
+
+        return revenue;
+
+    }
+
+
+    function getOrderTotal(
+        order
+    ) {
+
+        if (
+            order.total !==
+            undefined
+        ) {
+
+            return Number(
+                order.total
+            );
+
+        }
+
+
+        if (
+            order.total_amount !==
+            undefined
+        ) {
+
+            return Number(
+                order.total_amount
+            );
+
+        }
+
+
+        return (
+            Number(
+                order.quantity ||
+                1
+            ) *
+            Number(
+                order.price ||
+                0
+            )
+        );
+
+    }
+
+
+    function getInventoryUnitLabel() {
+
+        if (!products.length) {
+
+            return "Units available";
+
+        }
+
+
+        const units =
+            [
+                ...new Set(
+                    products
+                        .map(
+                            p =>
+                                p.unit
+                        )
+                        .filter(Boolean)
+                )
+            ];
+
+
+        if (units.length === 1) {
+
+            return `${capitalize(
+                units[0]
+            )}s available`;
+
+        }
+
+
+        return "Units available";
+
+    }
+
+
+    function getPrimaryUnit() {
+
+        return (
+            products[0]?.unit ||
+            "units"
+        );
+
+    }
+
+
+    function getProductIcon(
+        category
+    ) {
+
+        const value =
+            String(
+                category ||
+                ""
+            ).toLowerCase();
+
+
+        if (
+            value.includes("poultry")
+        ) {
+            return "🥚";
+        }
+
+
+        if (
+            value.includes("dairy")
+        ) {
+            return "🥛";
+        }
+
+
+        if (
+            value.includes("fruit")
+        ) {
+            return "🍎";
+        }
+
+
+        if (
+            value.includes("cereal")
+        ) {
+            return "🌾";
+        }
+
+
+        if (
+            value.includes("livestock")
+        ) {
+            return "🐄";
+        }
+
+
+        return "🥬";
+
+    }
+
+
+    function parseDate(
+        value
+    ) {
+
+        if (!value) {
+            return null;
+        }
+
+
+        const date =
+            new Date(value);
+
+
+        return Number.isNaN(
+            date.getTime()
+        )
+            ? null
+            : date;
+
+    }
+
+
+    function escapeHtml(
+        value
+    ) {
+
+        if (
+            API &&
+            typeof API.escapeHTML ===
+            "function"
+        ) {
+
+            return API.escapeHTML(
+                value
+            );
+
+        }
+
+
+        return String(
+            value ??
+            ""
+        )
+            .replace(
+                /&/g,
+                "&amp;"
+            )
+            .replace(
+                /</g,
+                "&lt;"
+            )
+            .replace(
+                />/g,
+                "&gt;"
+            )
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
+
+    }
+
+
+    function showError(
+        message
+    ) {
+
+        const error =
+            document.getElementById(
+                "dashboardError"
+            );
+
+
+        if (!error) {
+            return;
+        }
+
+
+        error.textContent =
+            message;
+
+
+        error.hidden =
+            false;
+
+
+        setTimeout(
+            () => {
+                error.hidden =
+                    true;
+            },
+            5000
+        );
+
+    }
+
+
+    function showSuccess(
+        message
+    ) {
+
+        const success =
+            document.getElementById(
+                "dashboardSuccess"
+            );
+
+
+        if (!success) {
+            return;
+        }
+
+
+        success.textContent =
+            message;
+
+
+        success.hidden =
+            false;
+
+
+        setTimeout(
+            () => {
+                success.hidden =
+                    true;
+            },
+            4000
+        );
+
+    }
+
+
+    function setFormLoading(
+        loading
+    ) {
+
+        const form =
+            document.getElementById(
+                "addProductForm"
+            );
+
+
+        if (!form) {
+            return;
+        }
+
+
+        const button =
+            form.querySelector(
+                "button[type='submit']"
+            );
+
+
+        if (!button) {
+            return;
+        }
+
+
+        button.disabled =
+            loading;
+
+
+        button.textContent =
+            loading
+                ? "Adding..."
+                : "Add Product";
+
+    }
+
+
+    /* =====================================================
+       PUBLIC API
+    ===================================================== */
+
+    window.editProduct =
+        editProduct;
+
+
+    window.deleteProduct =
+        deleteProduct;
+
+
+    window.duplicateProduct =
+        duplicateProduct;
+
+
+    window.changeOrderStatus =
+        changeOrderStatus;
+
+
+    window.loadProducts =
+        loadProducts;
+
+
+    window.loadOrders =
+        loadOrders;
+
+
+    window.ModernFarmsProducer = {
+
+        loadProducts,
+
+        loadOrders,
+
+        loadFarm,
+
+        addProduct,
+
+        editProduct,
+
+        deleteProduct,
+
+        duplicateProduct,
+
+        changeOrderStatus,
+
+        renderDashboard,
+
+        openAddProduct,
+
+        closeProductModal
+
+    };
+
+
+})();

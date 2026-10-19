@@ -1,0 +1,444 @@
+:where(.customer-app, .app-shell, .shell) {
+    --dashboard-ink: #173026;
+    --dashboard-muted: #667970;
+    --dashboard-green: #176b3b;
+    --dashboard-border: #e3ebe5;
+}
+
+:where(.customer-app, .app-shell, .shell) :where(button, a, input, select, textarea):focus-visible {
+    outline: 3px solid #8bcea0;
+    outline-offset: 2px;
+}
+
+:where(.customer-app, .app-shell, .shell) :where(button, .card, .dashboard-card, .customer-panel, .customer-stat-card, .stat-card) {
+    transition: box-shadow .18s ease, border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+
+/* Customer portal */
+.customer-app {
+    color: var(--dashboard-ink);
+    background:
+        radial-gradient(ellipse at 94% 0%, rgba(222, 241, 226, .55), transparent 34%),
+        #f4f8f5;
+}
+
+.customer-main {
+    padding: clamp(20px, 3vw, 38px);
+}
+
+.customer-topbar {
+    margin-bottom: 25px;
+}
+
+.customer-topbar h1 {
+    font-size: clamp(25px, 3vw, 32px);
+}
+
+.customer-topbar p,
+.customer-page-header p {
+    color: var(--dashboard-muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.customer-eyebrow {
+    font-size: 10px;
+    letter-spacing: .13em;
+}
+
+.customer-stats-grid {
+    gap: 15px;
+    margin-bottom: 18px;
+}
+
+.customer-stat-card,
+.customer-panel {
+    border-color: var(--dashboard-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(24, 58, 38, .05);
+}
+
+.customer-stat-card {
+    min-height: 100px;
+    padding: 17px;
+}
+
+.stat-content span {
+    font-size: 12px;
+}
+
+.stat-content strong {
+    font-size: 21px;
+}
+
+.stat-content small {
+    font-size: 10px;
+}
+
+.customer-panel {
+    margin-bottom: 18px;
+    padding: clamp(15px, 2vw, 22px);
+}
+
+.customer-panel-header {
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.customer-panel-header h2,
+.customer-page-header h2 {
+    font-size: 18px;
+    letter-spacing: -.02em;
+}
+
+.customer-link-button {
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.customer-link-button:hover {
+    background: #edf7ef;
+}
+
+.customer-order-row {
+    gap: 15px;
+    padding: 14px 0;
+}
+
+.customer-order-main,
+.customer-order-meta,
+.customer-order-status {
+    font-size: 12px;
+}
+
+.customer-product-card {
+    border-color: var(--dashboard-border);
+    border-radius: 14px;
+    box-shadow: 0 7px 22px rgba(24, 58, 38, .045);
+}
+
+.customer-product-image {
+    height: clamp(145px, 18vw, 205px);
+}
+
+.customer-product-body {
+    padding: 14px;
+}
+
+.customer-product-body h3 {
+    font-size: 15px;
+}
+
+.customer-product-body p {
+    min-height: 0;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.customer-product-bottom strong {
+    font-size: 15px;
+}
+
+.customer-product-bottom small,
+.customer-stock {
+    font-size: 10px;
+}
+
+.customer-product-farm-info strong {
+    font-size: 12px;
+}
+
+.customer-product-farm-info span {
+    font-size: 10px;
+}
+
+.customer-add-cart,
+.customer-checkout-button,
+.customer-checkout-submit,
+.customer-primary-button {
+    min-height: 40px;
+    border-radius: 9px;
+    font-size: 12px;
+}
+
+.customer-category-filter button {
+    padding: 8px 13px;
+    font-size: 11px;
+}
+
+.customer-category-grid button {
+    min-height: 100px;
+}
+
+.customer-category-grid strong {
+    font-size: 11px;
+}
+
+.customer-category-grid small {
+    font-size: 10px;
+}
+
+/* Producer portal */
+.app-shell {
+    color: var(--dashboard-ink);
+    background:
+        radial-gradient(ellipse at 95% 0%, rgba(222, 241, 226, .5), transparent 34%),
+        #f4f8f5;
+}
+
+.app-shell .sidebar {
+    box-shadow: 8px 0 28px rgba(4, 36, 21, .08);
+}
+
+.app-shell .main-content {
+    padding: clamp(22px, 3vw, 40px);
+}
+
+.app-shell .top-header {
+    align-items: center;
+    margin-bottom: 28px;
+}
+
+.app-shell .welcome-area h1 {
+    font-size: clamp(28px, 3vw, 36px);
+}
+
+.app-shell .welcome-area p {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.app-shell .eyebrow {
+    font-size: 10px;
+    letter-spacing: .14em;
+}
+
+.app-shell .stats-grid {
+    gap: 15px;
+}
+
+.app-shell .stat-card,
+.app-shell .dashboard-card,
+.app-shell .management-product {
+    border: 1px solid rgba(222, 232, 225, .9);
+    box-shadow: 0 8px 24px rgba(24, 58, 38, .055);
+}
+
+.app-shell .stat-card {
+    border-radius: 17px;
+}
+
+.app-shell .dashboard-card {
+    border-radius: 17px;
+    overflow: hidden;
+}
+
+.app-shell .card-header {
+    padding: 20px 22px;
+}
+
+.app-shell .card-header h2 {
+    font-size: 17px;
+}
+
+.app-shell .section-page-header h2 {
+    font-size: 26px;
+}
+
+.app-shell :where(input, select, textarea) {
+    border-radius: 10px;
+}
+
+.app-shell .primary-button,
+.app-shell .secondary-button,
+.app-shell .soft-button {
+    min-height: 40px;
+    border-radius: 10px;
+}
+
+/* Admin portal */
+.shell {
+    color: var(--dashboard-ink);
+    background:
+        radial-gradient(ellipse at 95% 0%, rgba(222, 241, 226, .5), transparent 34%),
+        #f4f8f5;
+}
+
+.shell .sidebar {
+    z-index: 2;
+    box-shadow: 8px 0 28px rgba(4, 36, 21, .08);
+}
+
+.shell main {
+    padding: clamp(22px, 3vw, 40px);
+}
+
+.shell h1 {
+    margin-bottom: 24px;
+    font-size: clamp(27px, 3vw, 34px);
+    letter-spacing: -.04em;
+}
+
+.shell h2 {
+    font-size: 19px;
+    letter-spacing: -.02em;
+}
+
+.shell .stats {
+    gap: 16px;
+}
+
+.shell .stat,
+.shell .card {
+    border: 1px solid var(--dashboard-border);
+    border-radius: 17px;
+    box-shadow: 0 8px 24px rgba(24, 58, 38, .055);
+}
+
+.shell .stat {
+    padding: 21px;
+}
+
+.shell .stat span {
+    font-size: 13px;
+}
+
+.shell .stat strong {
+    color: var(--dashboard-green);
+    font-size: 32px;
+}
+
+.shell .stat.warn strong {
+    color: #9b6608;
+}
+
+.shell .toolbar {
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.shell .toolbar input,
+.shell .toolbar select {
+    min-height: 44px;
+    border-color: #dce7df;
+    border-radius: 11px;
+}
+
+.shell .toolbar input:focus,
+.shell .toolbar select:focus {
+    border-color: #5ba876;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(47, 132, 76, .13);
+}
+
+.shell th {
+    padding-block: 15px;
+    color: #53665b;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.shell td {
+    padding-block: 15px;
+}
+
+.shell tbody tr:hover {
+    background: #f8fbf8;
+}
+
+.shell .btn {
+    min-height: 34px;
+    border-radius: 9px;
+}
+
+.shell .pending-row {
+    padding: 17px 20px;
+}
+
+@media (max-width: 800px) {
+    .customer-main {
+        padding: 20px;
+    }
+
+    .app-shell .main-content {
+        padding: 20px;
+    }
+
+    .shell .sidebar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 14px;
+    }
+
+    .shell .sidebar nav {
+        gap: 6px;
+    }
+
+    .shell .nav-item {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-height: 42px;
+    }
+}
+
+@media (max-width: 600px) {
+    .customer-main,
+    .app-shell .main-content,
+    .shell main {
+        padding: 16px;
+    }
+
+    .customer-topbar h1 {
+        font-size: 25px;
+    }
+
+    .customer-stats-grid {
+        gap: 10px;
+    }
+
+    .customer-stat-card {
+        min-height: 88px;
+        gap: 9px;
+        padding: 12px;
+    }
+
+    .customer-product-image {
+        height: 190px;
+    }
+
+    .app-shell .top-header {
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .shell .sidebar nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .shell .nav-item {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .shell .pending-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .shell .pending-row .btn {
+        margin: 0 6px 0 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :where(.customer-app, .app-shell, .shell) *,
+    :where(.customer-app, .app-shell, .shell) *::before,
+    :where(.customer-app, .app-shell, .shell) *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}

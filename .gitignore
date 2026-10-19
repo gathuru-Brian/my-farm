@@ -1,0 +1,42 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local databases and uploaded files
+**/database/*.db
+**/database/*.sqlite*
+/uploads/
+
+# Python development artifacts
+/.venv/
+/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Generated dependencies and build output
+**/node_modules/
+**/vendor/
+/frontend_backup_*/
+**/public/build/
+**/public/hot
+**/public/storage
+**/.phpunit.result.cache
+**/storage/logs/*.log
+**/bootstrap/cache/*.php
+
+# Local editor and agent configuration
+/.vscode/
+**/.mcp.json
+**/.codex/
+**/.claude/
+**/.agents/
+
+# Legacy backups
+*.backup
+*.bak

@@ -1,0 +1,497 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Sign in to your Modern Farms account."
+    >
+
+    <meta
+        name="theme-color"
+        content="#173f2a"
+    >
+
+    <title>Login | Modern Farms</title>
+
+    <link
+        rel="stylesheet"
+        href="/frontend/css/auth.css"
+    >
+
+</head>
+
+
+<body class="auth-page">
+
+
+<main class="auth-layout">
+
+
+    <!-- =====================================================
+         BRAND PANEL
+    ====================================================== -->
+
+    <section class="auth-brand-panel">
+
+        <div class="brand-panel-overlay"></div>
+
+        <div class="brand-panel-content">
+
+
+            <a
+                href="/"
+                class="auth-brand"
+                aria-label="Modern Farms home"
+            >
+
+                <span class="brand-icon">
+                    🌱
+                </span>
+
+                <span>
+                    <strong>Modern</strong> Farms
+                </span>
+
+            </a>
+
+
+            <div class="brand-message">
+
+                <span class="eyebrow">
+                    MODERN AGRICULTURE
+                </span>
+
+
+                <h1>
+                    Fresh food.
+                    <span>
+                        Connected agriculture.
+                    </span>
+                </h1>
+
+
+                <p>
+                    Connect with producers, discover
+                    quality farm products and manage
+                    your agricultural marketplace from
+                    one platform.
+                </p>
+
+
+                <div class="brand-features">
+
+
+                    <div class="brand-feature">
+
+                        <span
+                            class="feature-icon"
+                            aria-hidden="true"
+                        >
+                            🌾
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Farm direct
+                            </strong>
+
+                            <span>
+                                Connect directly with producers.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="brand-feature">
+
+                        <span
+                            class="feature-icon"
+                            aria-hidden="true"
+                        >
+                            🛒
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Simple ordering
+                            </strong>
+
+                            <span>
+                                Discover and order fresh products.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="brand-feature">
+
+                        <span
+                            class="feature-icon"
+                            aria-hidden="true"
+                        >
+                            📊
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Digital agriculture
+                            </strong>
+
+                            <span>
+                                Manage your farm marketplace digitally.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+            <div class="brand-panel-footer">
+
+                <span>
+                    © 2026 Modern Farms
+                </span>
+
+                <span>
+                    Farm Fresh. Direct To You.
+                </span>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         LOGIN PANEL
+    ====================================================== -->
+
+    <section class="auth-form-panel">
+
+        <div class="auth-form-wrapper">
+
+
+            <a
+                href="/"
+                class="mobile-auth-brand"
+                aria-label="Modern Farms home"
+            >
+
+                <span class="brand-icon">
+                    🌱
+                </span>
+
+                <span>
+                    <strong>Modern</strong> Farms
+                </span>
+
+            </a>
+
+
+            <div class="auth-header">
+
+                <span class="section-label">
+                    WELCOME BACK
+                </span>
+
+
+                <h2>
+
+                    Sign in to
+
+                    <span>
+                        Modern Farms.
+                    </span>
+
+                </h2>
+
+
+                <p>
+
+                    Access your marketplace account
+                    and continue where you left off.
+
+                </p>
+
+            </div>
+
+
+            <div
+                id="loginMessage"
+                class="auth-message"
+                role="alert"
+                aria-live="polite"
+                hidden
+            ></div>
+
+
+            <!-- =================================================
+                 LOGIN FORM
+            ================================================== -->
+
+            <form
+                id="loginForm"
+                class="auth-form"
+                novalidate
+            >
+
+
+                <div class="form-group">
+
+                    <label for="loginEmail">
+                        Email address
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            ✉
+                        </span>
+
+
+                        <input
+                            type="email"
+                            id="loginEmail"
+                            name="email"
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            inputmode="email"
+                            required
+                        >
+
+                    </div>
+
+
+                    <small
+                        id="loginEmailError"
+                        class="field-error"
+                        aria-live="polite"
+                    ></small>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <div class="label-row">
+
+                        <label for="loginPassword">
+                            Password
+                        </label>
+
+
+                        <a
+                            href="#"
+                            class="forgot-password"
+                            onclick="return false;"
+                        >
+                            Forgot password?
+                        </a>
+
+                    </div>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            🔒
+                        </span>
+
+
+                        <input
+                            type="password"
+                            id="loginPassword"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            data-target="loginPassword"
+                            aria-label="Show password"
+                        >
+                            Show
+                        </button>
+
+                    </div>
+
+
+                    <small
+                        id="loginPasswordError"
+                        class="field-error"
+                        aria-live="polite"
+                    ></small>
+
+                </div>
+
+
+                <label class="checkbox-row">
+
+                    <input
+                        type="checkbox"
+                        name="remember"
+                        id="remember"
+                        checked
+                    >
+
+                    <span>
+                        Keep me signed in
+                    </span>
+
+                </label>
+
+
+                <button
+                    type="submit"
+                    id="loginButton"
+                    class="auth-submit"
+                >
+
+                    <span id="loginButtonText">
+
+                        Sign In
+
+                        <span class="button-arrow">
+                            →
+                        </span>
+
+                    </span>
+
+
+                    <span
+                        id="loginLoader"
+                        class="button-loader"
+                        hidden
+                        aria-hidden="true"
+                    >
+
+                        <span class="spinner"></span>
+
+                        Signing in...
+
+                    </span>
+
+                </button>
+
+
+            </form>
+
+
+            <div class="auth-switch">
+
+                <span>
+                    Don't have an account?
+                </span>
+
+
+                <a
+                    href="/frontend/pages/register.html"
+                >
+                    Create an account
+                </a>
+
+            </div>
+
+
+            <a
+                href="/"
+                class="back-home"
+            >
+                ← Back to Modern Farms
+            </a>
+
+
+        </div>
+
+    </section>
+
+
+</main>
+
+
+<!-- =====================================================
+     JAVASCRIPT
+====================================================== -->
+
+<script src="/frontend/js/api.js?v=20260820123100"></script>
+
+<script src="/frontend/js/auth.js?v=20260820123100"></script>
+
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function () {
+
+        if (!window.ModernFarmsAPI) {
+
+            console.error(
+                "Modern Farms API client failed to load."
+            );
+
+            return;
+        }
+
+
+        if (!window.ModernFarmsAuth) {
+
+            console.error(
+                "Modern Farms authentication module failed to load."
+            );
+
+            return;
+        }
+
+
+        /*
+         * Validate an existing JWT session.
+         *
+         * This function now exists in auth.js.
+         */
+        await window.ModernFarmsAuth
+            .checkExistingSession();
+
+    }
+);
+
+</script>
+
+
+</body>
+
+</html>

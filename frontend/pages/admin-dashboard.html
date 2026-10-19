@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Modern Farms · Admin</title>
+    <link rel="stylesheet" href="/frontend/css/admin.css">
+    <link rel="stylesheet" href="/frontend/css/dashboard-theme.css">
+</head>
+<body>
+<div class="shell">
+
+    <aside class="sidebar">
+        <div class="brand">🌾 Modern <span>Farms</span><small>Admin</small></div>
+
+        <nav>
+            <button class="nav-item active" data-section="overview">📊 Overview</button>
+            <button class="nav-item" data-section="producers">🧑‍🌾 Producers <b id="pendingBadge" class="badge">0</b></button>
+            <button class="nav-item" data-section="customers">👥 Customers</button>
+            <button class="nav-item" data-section="products">📦 Products</button>
+        </nav>
+
+        <button class="logout" data-action="logout">Log out</button>
+    </aside>
+
+    <main>
+        <div id="toast" class="toast"></div>
+
+        <!-- OVERVIEW -->
+        <section id="overview" class="panel active">
+            <h1>Overview</h1>
+            <div class="stats">
+                <div class="stat"><span>Producers</span><strong id="sProducers">0</strong></div>
+                <div class="stat warn"><span>Awaiting approval</span><strong id="sPending">0</strong></div>
+                <div class="stat"><span>Customers</span><strong id="sCustomers">0</strong></div>
+                <div class="stat"><span>Products</span><strong id="sProducts">0</strong></div>
+                <div class="stat"><span>Orders</span><strong id="sOrders">0</strong></div>
+            </div>
+
+            <h2>Producers awaiting approval</h2>
+            <div class="card"><div id="pendingList"></div></div>
+        </section>
+
+        <!-- PRODUCERS -->
+        <section id="producers" class="panel">
+            <h1>Producers</h1>
+            <div class="toolbar">
+                <input type="search" placeholder="Search name, email, farm…" data-search="producers">
+                <select id="producerFilter">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="suspended">Suspended</option>
+                </select>
+            </div>
+            <div class="card table-wrap"><div id="producersTable"></div></div>
+        </section>
+
+        <!-- CUSTOMERS -->
+        <section id="customers" class="panel">
+            <h1>Customers</h1>
+            <div class="toolbar">
+                <input type="search" placeholder="Search name or email…" data-search="customers">
+            </div>
+            <div class="card table-wrap"><div id="customersTable"></div></div>
+        </section>
+
+        <!-- PRODUCTS -->
+        <section id="products" class="panel">
+            <h1>Products</h1>
+            <div class="toolbar">
+                <input type="search" placeholder="Search product, producer, farm…" data-search="products">
+            </div>
+            <div class="card table-wrap"><div id="productsTable"></div></div>
+        </section>
+    </main>
+
+</div>
+<script src="/frontend/js/admin.js"></script>
+</body>
+</html>

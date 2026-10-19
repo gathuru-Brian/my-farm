@@ -1,0 +1,103 @@
+﻿<!-- =====================================================
+     STATISTICS / PLATFORM TRUST
+===================================================== -->
+
+<section class="stats-section">
+
+    <div class="stats-container">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                🌾
+            </div>
+
+            <div class="stat-info">
+
+                <strong
+                    data-counter="100"
+                    data-suffix="+"
+                >
+                    100+
+                </strong>
+
+                <span>
+                    Agricultural Products
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                👨🏾‍🌾
+            </div>
+
+            <div class="stat-info">
+
+                <strong
+                    data-counter="50"
+                    data-suffix="+"
+                >
+                    50+
+                </strong>
+
+                <span>
+                    Trusted Producers
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                🛒
+            </div>
+
+            <div class="stat-info">
+
+                <strong
+                    data-counter="500"
+                    data-suffix="+"
+                >
+                    500+
+                </strong>
+
+                <span>
+                    Orders Processed
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                ⚡
+            </div>
+
+            <div class="stat-info">
+
+                <strong>
+                    24/7
+                </strong>
+
+                <span>
+                    Digital Marketplace
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>

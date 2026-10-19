@@ -1,0 +1,673 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Customer Dashboard | Modern Farms</title>
+
+    <link rel="stylesheet"
+          href="/frontend/css/customer-dashboard.css">
+</head>
+
+<body>
+
+<div class="mf-app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+
+        <div class="brand">
+            <div class="brand-mark">
+                <svg viewBox="0 0 64 64" aria-hidden="true">
+                    <path d="M32 51C29 39 30 27 38 17C43 11 51 9 57 9C56 18 52 26 45 31C40 35 35 36 32 36"
+                          fill="currentColor"/>
+                    <path d="M31 50C28 41 23 34 14 31C9 29 5 29 2 30C4 39 10 45 18 47C23 49 28 49 31 50"
+                          fill="currentColor"/>
+                    <path d="M29 48H35V59H29Z" fill="#9b6b43"/>
+                </svg>
+            </div>
+
+            <div class="brand-name">
+                <strong>Modern</strong> Farms
+            </div>
+        </div>
+
+        <div class="customer-mini-card">
+            <div class="avatar" id="sidebarAvatar">C</div>
+
+            <div>
+                <strong id="sidebarName">Customer</strong>
+                <span>Customer Account</span>
+            </div>
+        </div>
+
+        <nav class="main-nav">
+
+            <button class="nav-item active" data-section="overview">
+                <span class="nav-icon">⌂</span>
+                <span>Overview</span>
+            </button>
+
+            <button class="nav-item" data-section="marketplace">
+                <span class="nav-icon">▱</span>
+                <span>Marketplace</span>
+            </button>
+
+            <button class="nav-item" data-section="cart">
+                <span class="nav-icon">🛒</span>
+                <span>Cart</span>
+                <span class="nav-count" id="cartCount">0</span>
+            </button>
+
+            <button class="nav-item" data-section="orders">
+                <span class="nav-icon">▣</span>
+                <span>My Orders</span>
+            </button>
+
+            <button class="nav-item" data-section="favorites">
+                <span class="nav-icon">♥</span>
+                <span>Favorites</span>
+            </button>
+
+            <button class="nav-item" data-section="profile">
+                <span class="nav-icon">○</span>
+                <span>Profile</span>
+            </button>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <button class="support-link" id="supportButton">
+                <span>?</span>
+                Help & Support
+            </button>
+
+            <button class="support-link logout" id="logoutButton">
+                <span>↪</span>
+                Sign Out
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <button class="mobile-menu" id="mobileMenu">
+                ☰
+            </button>
+
+            <div></div>
+
+            <div class="topbar-actions">
+
+                <button class="cart-top-button" id="topCartButton">
+                    🛒
+                    <span id="topCartCount">0</span>
+                </button>
+
+                <button class="account-button" data-section="profile">
+
+                    <div class="avatar small" id="topAvatar">
+                        C
+                    </div>
+
+                    <div>
+                        <strong id="topName">Customer</strong>
+                        <span>Customer Account</span>
+                    </div>
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- NOTIFICATION -->
+        <div class="notification" id="notification"></div>
+
+
+        <!-- ========================= -->
+        <!-- OVERVIEW -->
+        <!-- ========================= -->
+
+        <section class="dashboard-section active" id="overview">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="eyebrow">CUSTOMER MARKETPLACE</span>
+
+                    <h1>
+                        Welcome back,
+                        <span id="welcomeName">Customer</span>
+                    </h1>
+
+                    <p>
+                        Discover fresh products directly from agricultural producers.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <!-- HERO -->
+            <section class="hero">
+
+                <div class="hero-content">
+
+                    <span class="eyebrow light">
+                        FRESH FROM THE FARM
+                    </span>
+
+                    <h2>
+                        Quality food.
+                        <br>
+                        Direct from <span>producers.</span>
+                    </h2>
+
+                    <p>
+                        Browse fresh agricultural products, choose what
+                        you need and place your order directly through
+                        Modern Farms.
+                    </p>
+
+                    <button class="hero-button" data-section="marketplace">
+                        Explore Marketplace
+                        <span>→</span>
+                    </button>
+
+                </div>
+
+                <div class="hero-graphic">
+
+                    <div class="hero-circle circle-one"></div>
+                    <div class="hero-circle circle-two"></div>
+
+                    <div class="plant-icon">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M50 72V40" stroke="currentColor" stroke-width="5"/>
+                            <path d="M50 47C35 43 24 34 23 20C37 20 49 28 50 47Z"
+                                  fill="currentColor"/>
+                            <path d="M50 42C55 27 67 19 81 20C78 34 68 43 50 42Z"
+                                  fill="currentColor"/>
+                            <path d="M38 72C38 61 62 61 62 72C62 80 56 85 50 85C44 85 38 80 38 72Z"
+                                  fill="#9b6b43"/>
+                        </svg>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- STAT CARDS -->
+            <div class="stats-grid">
+
+                <div class="stat-card">
+                    <div class="stat-icon green">🛒</div>
+                    <div>
+                        <span>Cart Items</span>
+                        <strong id="statCart">0</strong>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon blue">▣</div>
+                    <div>
+                        <span>Total Orders</span>
+                        <strong id="statOrders">0</strong>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon amber">◷</div>
+                    <div>
+                        <span>Pending Orders</span>
+                        <strong id="statPending">0</strong>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon purple">♥</div>
+                    <div>
+                        <span>Favorites</span>
+                        <strong id="statFavorites">0</strong>
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- QUICK ACTIONS -->
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">QUICK ACTIONS</span>
+                    <h2>Shop with ease</h2>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+
+                <button class="quick-card" data-section="marketplace">
+                    <div class="quick-icon green">▱</div>
+                    <div>
+                        <strong>Browse Marketplace</strong>
+                        <span>Discover fresh products</span>
+                    </div>
+                    <b>→</b>
+                </button>
+
+                <button class="quick-card" data-section="orders">
+                    <div class="quick-icon blue">▣</div>
+                    <div>
+                        <strong>Track Orders</strong>
+                        <span>Check your order status</span>
+                    </div>
+                    <b>→</b>
+                </button>
+
+                <button class="quick-card" data-section="cart">
+                    <div class="quick-icon amber">🛒</div>
+                    <div>
+                        <strong>View Cart</strong>
+                        <span>Review your selected products</span>
+                    </div>
+                    <b>→</b>
+                </button>
+
+            </div>
+
+
+            <!-- RECOMMENDED -->
+            <div class="section-heading product-heading">
+
+                <div>
+                    <span class="eyebrow">RECOMMENDED</span>
+                    <h2>Fresh products</h2>
+                </div>
+
+                <button class="text-button" data-section="marketplace">
+                    View all →
+                </button>
+
+            </div>
+
+            <div class="products-grid compact" id="recommendedProducts">
+                <div class="loading-card">
+                    Loading products...
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- MARKETPLACE -->
+        <!-- ========================= -->
+
+        <section class="dashboard-section" id="marketplace">
+
+            <div class="page-heading">
+                <div>
+                    <span class="eyebrow">MARKETPLACE</span>
+                    <h1>Fresh products from producers</h1>
+                    <p>
+                        Find quality agricultural products available for ordering.
+                    </p>
+                </div>
+            </div>
+
+            <div class="marketplace-toolbar">
+
+                <div class="search-box">
+                    <span>⌕</span>
+                    <input
+                        type="search"
+                        id="productSearch"
+                        placeholder="Search products..."
+                    >
+                </div>
+
+                <select id="productSort">
+                    <option value="recommended">Recommended</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="name">Product Name</option>
+                </select>
+
+            </div>
+
+            <div class="category-tabs" id="categoryTabs">
+                <button class="category active" data-category="all">
+                    All Products
+                </button>
+                <button class="category" data-category="Vegetables">
+                    Vegetables
+                </button>
+                <button class="category" data-category="Fruits">
+                    Fruits
+                </button>
+                <button class="category" data-category="Dairy">
+                    Dairy
+                </button>
+                <button class="category" data-category="Poultry">
+                    Poultry
+                </button>
+                <button class="category" data-category="Cereals">
+                    Cereals
+                </button>
+            </div>
+
+            <div class="products-grid" id="marketplaceProducts">
+                <div class="loading-card">
+                    Loading products...
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- CART -->
+        <!-- ========================= -->
+
+        <section class="dashboard-section" id="cart">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="eyebrow">SHOPPING CART</span>
+                    <h1>Your selected products</h1>
+                    <p>
+                        Review your products before placing an order.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="cart-layout">
+
+                <div class="cart-items-panel">
+
+                    <div id="cartItems">
+                        <div class="empty-state">
+                            <div class="empty-icon">🛒</div>
+                            <h3>Your cart is empty</h3>
+                            <p>
+                                Explore the marketplace and add fresh products
+                                from our producers.
+                            </p>
+
+                            <button class="primary-button"
+                                    data-section="marketplace">
+                                Browse Marketplace →
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <aside class="order-summary">
+
+                    <span class="eyebrow">ORDER SUMMARY</span>
+
+                    <h2>Summary</h2>
+
+                    <div class="summary-row">
+                        <span>Items</span>
+                        <strong id="summaryItems">0</strong>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <strong id="summarySubtotal">KES 0.00</strong>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Delivery</span>
+                        <strong>Calculated later</strong>
+                    </div>
+
+                    <div class="summary-divider"></div>
+
+                    <div class="summary-total">
+                        <span>Total</span>
+                        <strong id="summaryTotal">KES 0.00</strong>
+                    </div>
+
+                    <button class="primary-button full"
+                            id="placeOrderButton">
+                        Place Orders →
+                    </button>
+
+                    <p class="summary-note">
+                        Each selected product is submitted through the
+                        Modern Farms order API.
+                    </p>
+
+                </aside>
+
+            </div>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- ORDERS -->
+        <!-- ========================= -->
+
+        <section class="dashboard-section" id="orders">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="eyebrow">ORDER HISTORY</span>
+                    <h1>My Orders</h1>
+                    <p>
+                        Track orders placed through Modern Farms.
+                    </p>
+                </div>
+
+                <button class="secondary-button" id="refreshOrders">
+                    Refresh
+                </button>
+
+            </div>
+
+            <div class="orders-panel" id="ordersList">
+                <div class="loading-card">
+                    Loading orders...
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- FAVORITES -->
+        <!-- ========================= -->
+
+        <section class="dashboard-section" id="favorites">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="eyebrow">YOUR SELECTION</span>
+                    <h1>Favorite Products</h1>
+                    <p>
+                        Products you want to keep close for your next order.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="products-grid" id="favoriteProducts">
+
+                <div class="empty-state">
+                    <div class="empty-icon">♥</div>
+                    <h3>No favorites yet</h3>
+                    <p>
+                        Add products to your favorites while browsing
+                        the marketplace.
+                    </p>
+
+                    <button class="primary-button"
+                            data-section="marketplace">
+                        Explore Products →
+                    </button>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ========================= -->
+        <!-- PROFILE -->
+        <!-- ========================= -->
+
+        <section class="dashboard-section" id="profile">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="eyebrow">ACCOUNT</span>
+                    <h1>My Profile</h1>
+                    <p>
+                        Manage your Modern Farms customer account.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="profile-grid">
+
+                <div class="profile-card">
+
+                    <div class="profile-avatar" id="profileAvatar">
+                        C
+                    </div>
+
+                    <h2 id="profileName">Customer</h2>
+
+                    <span class="account-badge">
+                        Customer Account
+                    </span>
+
+                </div>
+
+
+                <div class="profile-form">
+
+                    <div class="form-grid">
+
+                        <label>
+                            Full name
+                            <input type="text"
+                                   id="profileFullName"
+                                   placeholder="Your name">
+                        </label>
+
+                        <label>
+                            Email address
+                            <input type="email"
+                                   id="profileEmail"
+                                   placeholder="Email address"
+                                   disabled>
+                        </label>
+
+                    </div>
+
+                    <label>
+                        Phone number
+                        <input type="tel"
+                               id="profilePhone"
+                               placeholder="Phone number">
+                    </label>
+
+                    <label>
+                        Delivery location
+                        <input type="text"
+                               id="profileLocation"
+                               placeholder="Town / County">
+                    </label>
+
+                    <button class="primary-button"
+                            id="saveProfile">
+                        Save Changes
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- FOOTER -->
+
+        <footer class="dashboard-footer">
+
+            <div>
+                <strong>Modern Farms</strong>
+                <span>Fresh. Direct. Connected.</span>
+            </div>
+
+            <span>
+                © 2026 Modern Farms
+            </span>
+
+        </footer>
+
+    </main>
+
+</div>
+
+
+<!-- ORDER CONFIRMATION -->
+<!-- This is INLINE, not an overlay modal. -->
+
+<div class="confirmation-panel" id="orderConfirmation">
+
+    <div class="confirmation-icon">✓</div>
+
+    <div class="confirmation-content">
+        <strong>Ready to place your orders?</strong>
+        <span>
+            Your cart items will be submitted as individual customer
+            orders to the producers.
+        </span>
+    </div>
+
+    <div class="confirmation-actions">
+
+        <button class="secondary-button"
+                id="cancelConfirmation">
+            Cancel
+        </button>
+
+        <button class="primary-button"
+                id="confirmOrders">
+            Confirm Orders
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="/frontend/js/api.js"></script>
+<script src="/frontend/js/customer-dashboard.js"></script>
+
+</body>
+</html>

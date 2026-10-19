@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Create your Modern Farms customer or producer account."
+    >
+
+    <meta
+        name="theme-color"
+        content="#173f2a"
+    >
+
+    <title>Create Account | Modern Farms</title>
+
+
+    <!-- =====================================================
+         AUTHENTICATION STYLES
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="/frontend/css/auth.css"
+    >
+
+</head>
+
+
+<body class="auth-page">
+
+
+<!-- =====================================================
+     MAIN AUTH LAYOUT
+====================================================== -->
+
+<main class="auth-layout">
+
+
+    <!-- =================================================
+         BRAND PANEL
+    ================================================== -->
+
+    <section class="auth-brand-panel register-brand">
+
+        <div class="brand-panel-overlay"></div>
+
+
+        <div class="brand-panel-content">
+
+
+            <!-- BRAND -->
+
+            <a
+                href="/"
+                class="auth-brand"
+                aria-label="Modern Farms home"
+            >
+
+                <span class="brand-icon">
+                    🌱
+                </span>
+
+                <span>
+                    <strong>Modern</strong> Farms
+                </span>
+
+            </a>
+
+
+
+            <!-- BRAND MESSAGE -->
+
+            <div class="brand-message">
+
+                <span class="eyebrow">
+                    JOIN THE MARKETPLACE
+                </span>
+
+
+                <h1>
+
+                    Grow your
+
+                    <span>
+                        agricultural journey.
+                    </span>
+
+                </h1>
+
+
+                <p>
+
+                    Whether you're buying fresh produce
+                    or selling what you grow, Modern Farms
+                    gives you the tools to connect.
+
+                </p>
+
+
+
+                <!-- ROLE PREVIEW -->
+
+                <div class="role-preview">
+
+
+                    <!-- CUSTOMER -->
+
+                    <div>
+
+                        <span class="role-preview-icon">
+                            🛒
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Customer
+                            </strong>
+
+                            <span>
+                                Discover and order farm products.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- PRODUCER -->
+
+                    <div>
+
+                        <span class="role-preview-icon">
+                            🌾
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Producer
+                            </strong>
+
+                            <span>
+                                Sell products and manage your farm.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+
+            <!-- BRAND FOOTER -->
+
+            <div class="brand-panel-footer">
+
+                <span>
+                    © 2026 Modern Farms
+                </span>
+
+                <span>
+                    Farm Fresh. Direct To You.
+                </span>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         REGISTRATION PANEL
+    ================================================== -->
+
+    <section class="auth-form-panel">
+
+
+        <div class="auth-form-wrapper register-wrapper">
+
+
+            <!-- MOBILE BRAND -->
+
+            <a
+                href="/"
+                class="mobile-auth-brand"
+                aria-label="Modern Farms home"
+            >
+
+                <span class="brand-icon">
+                    🌱
+                </span>
+
+                <span>
+                    <strong>Modern</strong> Farms
+                </span>
+
+            </a>
+
+
+
+            <!-- =================================================
+                 HEADER
+            ================================================== -->
+
+            <div class="auth-header">
+
+                <span class="section-label">
+                    GET STARTED
+                </span>
+
+
+                <h2>
+
+                    Create your
+
+                    <span>
+                        account.
+                    </span>
+
+                </h2>
+
+
+                <p>
+
+                    Join Modern Farms as a customer
+                    or agricultural producer.
+
+                </p>
+
+            </div>
+
+
+
+            <!-- =================================================
+                 AUTH MESSAGE
+
+                 IMPORTANT:
+                 auth.js expects registerMessage
+            ================================================== -->
+
+            <div
+                id="registerMessage"
+                class="auth-message"
+                role="alert"
+                aria-live="polite"
+                hidden
+            ></div>
+
+
+
+            <!-- =================================================
+                 REGISTRATION FORM
+            ================================================== -->
+
+            <form
+                id="registerForm"
+                class="auth-form"
+                novalidate
+            >
+
+
+
+                <!-- =================================================
+                     ACCOUNT TYPE
+                ================================================== -->
+
+                <div class="form-group">
+
+
+                    <label>
+                        I want to join as...
+                    </label>
+
+
+                    <div class="role-selection">
+
+
+                        <!-- CUSTOMER -->
+
+                        <label class="role-option">
+
+                            <input
+                                type="radio"
+                                name="role"
+                                value="customer"
+                                checked
+                            >
+
+
+                            <span class="role-card">
+
+                                <span class="role-icon">
+                                    🛒
+                                </span>
+
+
+                                <span class="role-info">
+
+                                    <strong>
+                                        Customer
+                                    </strong>
+
+                                    <small>
+                                        Buy fresh farm products
+                                    </small>
+
+                                </span>
+
+
+                                <span class="role-check">
+                                    ✓
+                                </span>
+
+                            </span>
+
+                        </label>
+
+
+
+                        <!-- PRODUCER -->
+
+                        <label class="role-option">
+
+                            <input
+                                type="radio"
+                                name="role"
+                                value="producer"
+                            >
+
+
+                            <span class="role-card">
+
+                                <span class="role-icon">
+                                    🌾
+                                </span>
+
+
+                                <span class="role-info">
+
+                                    <strong>
+                                        Producer
+                                    </strong>
+
+                                    <small>
+                                        Sell and manage farm products
+                                    </small>
+
+                                </span>
+
+
+                                <span class="role-check">
+                                    ✓
+                                </span>
+
+                            </span>
+
+                        </label>
+
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     FULL NAME
+                ================================================== -->
+
+                <div class="form-group">
+
+                    <label for="fullName">
+                        Full name
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            👤
+                        </span>
+
+
+                        <input
+                            type="text"
+                            id="fullName"
+                            name="full_name"
+                            placeholder="Your full name"
+                            autocomplete="name"
+                            required
+                        >
+
+                    </div>
+
+
+                    <small
+                        id="fullNameError"
+                        class="field-error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     EMAIL
+                ================================================== -->
+
+                <div class="form-group">
+
+                    <label for="email">
+                        Email address
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            ✉
+                        </span>
+
+
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            inputmode="email"
+                            required
+                        >
+
+                    </div>
+
+
+                    <small
+                        id="emailError"
+                        class="field-error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     PHONE
+                ================================================== -->
+
+                <div class="form-group">
+
+                    <label for="phone">
+
+                        Phone number
+
+                        <span class="optional">
+                            Optional
+                        </span>
+
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            ☎
+                        </span>
+
+
+                        <input
+                            type="tel"
+                            id="phone"
+                            name="phone"
+                            placeholder="07XX XXX XXX"
+                            autocomplete="tel"
+                            inputmode="tel"
+                        >
+
+                    </div>
+
+
+                    <small
+                        id="phoneError"
+                        class="field-error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     PASSWORD
+                ================================================== -->
+
+                <div class="form-group">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            🔒
+                        </span>
+
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="At least 8 characters"
+                            autocomplete="new-password"
+                            required
+                        >
+
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            data-target="password"
+                            aria-label="Show password"
+                        >
+                            Show
+                        </button>
+
+                    </div>
+
+
+                    <small
+                        id="passwordError"
+                        class="field-error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     CONFIRM PASSWORD
+                ================================================== -->
+
+                <div class="form-group">
+
+                    <label for="confirmPassword">
+                        Confirm password
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <span
+                            class="input-icon"
+                            aria-hidden="true"
+                        >
+                            🔐
+                        </span>
+
+
+                        <input
+                            type="password"
+                            id="confirmPassword"
+                            name="confirm_password"
+                            placeholder="Repeat your password"
+                            autocomplete="new-password"
+                            required
+                        >
+
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            data-target="confirmPassword"
+                            aria-label="Show password"
+                        >
+                            Show
+                        </button>
+
+                    </div>
+
+
+                    <small
+                        id="confirmPasswordError"
+                        class="field-error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- =================================================
+                     TERMS
+                ================================================== -->
+
+                <label class="checkbox-row terms-row">
+
+                    <input
+                        type="checkbox"
+                        id="terms"
+                        name="terms"
+                        required
+                    >
+
+
+                    <span>
+
+                        I agree to the Modern Farms
+
+                        <a
+                            href="#"
+                            onclick="return false;"
+                        >
+                            Terms of Service
+                        </a>
+
+                        and
+
+                        <a
+                            href="#"
+                            onclick="return false;"
+                        >
+                            Privacy Policy
+                        </a>.
+
+                    </span>
+
+                </label>
+
+
+                <small
+                    id="termsError"
+                    class="field-error"
+                ></small>
+
+
+
+                <!-- =================================================
+                     SUBMIT BUTTON
+                ================================================== -->
+
+                <button
+                    type="submit"
+                    id="registerButton"
+                    class="auth-submit"
+                >
+
+
+                    <!--
+                    auth.js expects registerButtonText
+                    -->
+
+                    <span id="registerButtonText">
+
+                        Create Account
+
+                        <span class="button-arrow">
+                            →
+                        </span>
+
+                    </span>
+
+
+                    <!--
+                    auth.js expects registerLoader
+                    -->
+
+                    <span
+                        id="registerLoader"
+                        class="button-loader"
+                        hidden
+                        aria-hidden="true"
+                    >
+
+                        <span class="spinner"></span>
+
+                        Creating account...
+
+                    </span>
+
+
+                </button>
+
+
+            </form>
+
+
+
+            <!-- =================================================
+                 LOGIN LINK
+            ================================================== -->
+
+            <div class="auth-switch">
+
+                <span>
+                    Already have an account?
+                </span>
+
+
+                <a
+                    href="/frontend/pages/login.html"
+                >
+                    Sign in
+                </a>
+
+            </div>
+
+
+
+            <!-- =================================================
+                 BACK TO HOME
+            ================================================== -->
+
+            <a
+                href="/"
+                class="back-home"
+            >
+                ← Back to Modern Farms
+            </a>
+
+
+        </div>
+
+    </section>
+
+
+</main>
+
+
+
+<!-- =====================================================
+     JAVASCRIPT
+====================================================== -->
+
+<script src="/frontend/js/api.js"></script>
+<script src="/frontend/js/auth.js"></script>
+
+
+</body>
+
+</html>

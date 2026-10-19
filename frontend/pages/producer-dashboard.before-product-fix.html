@@ -1,0 +1,765 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#173f2a"
+    >
+
+    <meta
+        name="description"
+        content="Modern Farms producer dashboard."
+    >
+
+    <title>Producer Dashboard | Modern Farms</title>
+
+    <!-- PRODUCER DASHBOARD STYLES -->
+    <link
+        rel="stylesheet"
+        href="/frontend/css/producer.css"
+    >
+
+</head>
+
+
+<body>
+
+
+<div class="dashboard">
+
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+        <div class="logo">
+
+            <span class="logo-icon">🌱</span>
+
+            <span class="logo-modern">
+                Modern
+            </span>
+
+            <span class="logo-farms">
+                Farms
+            </span>
+
+        </div>
+
+
+        <nav class="nav" aria-label="Producer navigation">
+
+
+            <button
+                type="button"
+                class="nav-button active"
+                data-section="overview"
+                onclick="showSection('overview', this)"
+            >
+                <span class="nav-icon">📊</span>
+                <span>Overview</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-button"
+                data-section="products"
+                onclick="showSection('products', this)"
+            >
+                <span class="nav-icon">🌾</span>
+                <span>My Products</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-button"
+                data-section="orders"
+                onclick="showSection('orders', this)"
+            >
+                <span class="nav-icon">📦</span>
+                <span>Orders</span>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-button"
+                data-section="profile"
+                onclick="showSection('profile', this)"
+            >
+                <span class="nav-icon">👤</span>
+                <span>Profile</span>
+            </button>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+
+            <button
+                type="button"
+                class="logout"
+                onclick="logout()"
+            >
+                <span>↪</span>
+                <span>Sign Out</span>
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
+
+    <main class="main">
+
+
+        <!-- ALERTS -->
+
+        <div
+            id="dashboardError"
+            class="alert alert-error"
+            role="alert"
+            aria-live="assertive"
+            hidden
+        ></div>
+
+
+        <div
+            id="dashboardSuccess"
+            class="alert alert-success"
+            role="status"
+            aria-live="polite"
+            hidden
+        ></div>
+
+
+
+        <!-- =================================================
+             TOP BAR
+        ================================================== -->
+
+        <header class="topbar">
+
+
+            <div class="welcome">
+
+                <span class="eyebrow">
+                    PRODUCER PORTAL
+                </span>
+
+                <h1>
+                    Welcome,
+                    <span id="producerName">
+                        Producer
+                    </span>
+                </h1>
+
+                <p>
+                    Manage your farm products,
+                    inventory and customer orders.
+                </p>
+
+            </div>
+
+
+            <div class="producer-pill">
+
+                <span>🌾</span>
+
+                <span>
+                    Producer Account
+                </span>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- =================================================
+             OVERVIEW
+        ================================================== -->
+
+        <section
+            id="overview"
+            class="dashboard-section"
+        >
+
+
+            <!-- STATISTICS -->
+
+            <div class="stats">
+
+
+                <div class="stat">
+
+                    <div class="stat-icon">
+                        🌾
+                    </div>
+
+                    <div>
+
+                        <div class="stat-label">
+                            Products
+                        </div>
+
+                        <div
+                            class="stat-value"
+                            id="productCount"
+                        >
+                            0
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="stat">
+
+                    <div class="stat-icon">
+                        📦
+                    </div>
+
+                    <div>
+
+                        <div class="stat-label">
+                            Orders
+                        </div>
+
+                        <div
+                            class="stat-value"
+                            id="orderCount"
+                        >
+                            0
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="stat">
+
+                    <div class="stat-icon">
+                        ⏳
+                    </div>
+
+                    <div>
+
+                        <div class="stat-label">
+                            Pending Orders
+                        </div>
+
+                        <div
+                            class="stat-value"
+                            id="pendingCount"
+                        >
+                            0
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="stat">
+
+                    <div class="stat-icon">
+                        ✓
+                    </div>
+
+                    <div>
+
+                        <div class="stat-label">
+                            Account
+                        </div>
+
+                        <div class="stat-value stat-active">
+                            Active
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- OVERVIEW GRID -->
+
+            <div class="grid">
+
+
+                <!-- PRODUCTS -->
+
+                <div class="card">
+
+                    <div class="section-header">
+
+                        <div>
+
+                            <span class="section-label">
+                                INVENTORY
+                            </span>
+
+                            <h2>
+                                My Products
+                            </h2>
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            class="refresh"
+                            onclick="loadInventory()"
+                        >
+                            Refresh
+                        </button>
+
+                    </div>
+
+
+                    <div id="productsList">
+
+                        <div class="loading">
+                            Loading products...
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- ORDERS -->
+
+                <div class="card">
+
+                    <div class="section-header">
+
+                        <div>
+
+                            <span class="section-label">
+                                SALES
+                            </span>
+
+                            <h2>
+                                Recent Orders
+                            </h2>
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            class="refresh"
+                            onclick="loadOrders()"
+                        >
+                            Refresh
+                        </button>
+
+                    </div>
+
+
+                    <div id="ordersList">
+
+                        <div class="loading">
+                            Loading orders...
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================================
+             PRODUCTS
+        ================================================== -->
+
+        <section
+            id="products"
+            class="dashboard-section is-hidden"
+        >
+
+
+            <div class="grid">
+
+
+                <!-- ADD PRODUCT -->
+
+                <div class="card">
+
+                    <div class="section-header">
+
+                        <div>
+
+                            <span class="section-label">
+                                INVENTORY MANAGEMENT
+                            </span>
+
+                            <h2>
+                                Add Product
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+
+                    <form id="productForm">
+
+
+                        <div class="form-group">
+
+                            <label for="productName">
+                                Product name
+                            </label>
+
+                            <input
+                                type="text"
+                                id="productName"
+                                name="productName"
+                                required
+                                placeholder="e.g. Fresh Tomatoes"
+                            >
+
+                        </div>
+
+
+
+                        <div class="form-row">
+
+
+                            <div class="form-group">
+
+                                <label for="productPrice">
+                                    Price (KES)
+                                </label>
+
+                                <input
+                                    type="number"
+                                    id="productPrice"
+                                    name="productPrice"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                    placeholder="0.00"
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="productQuantity">
+                                    Quantity
+                                </label>
+
+                                <input
+                                    type="number"
+                                    id="productQuantity"
+                                    name="productQuantity"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                    placeholder="0"
+                                >
+
+                            </div>
+
+
+                        </div>
+
+
+
+                        <div class="form-group">
+
+                            <label for="productDescription">
+                                Description
+                            </label>
+
+                            <textarea
+                                id="productDescription"
+                                name="productDescription"
+                                placeholder="Describe your product..."
+                            ></textarea>
+
+                        </div>
+
+
+
+                        <button
+                            class="primary-button"
+                            type="submit"
+                        >
+                            Add Product
+                            <span>→</span>
+                        </button>
+
+
+                    </form>
+
+                </div>
+
+
+
+                <!-- INVENTORY -->
+
+                <div class="card">
+
+                    <div class="section-header">
+
+                        <div>
+
+                            <span class="section-label">
+                                STOCK
+                            </span>
+
+                            <h2>
+                                Inventory
+                            </h2>
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            class="refresh"
+                            onclick="loadInventory()"
+                        >
+                            Refresh
+                        </button>
+
+                    </div>
+
+
+                    <div id="inventoryList">
+
+                        <div class="loading">
+                            Loading inventory...
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             ORDERS
+        ================================================== -->
+
+        <section
+            id="orders"
+            class="dashboard-section is-hidden"
+        >
+
+            <div class="card">
+
+                <div class="section-header">
+
+                    <div>
+
+                        <span class="section-label">
+                            CUSTOMER SALES
+                        </span>
+
+                        <h2>
+                            Customer Orders
+                        </h2>
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        class="refresh"
+                        onclick="loadOrders()"
+                    >
+                        Refresh
+                    </button>
+
+                </div>
+
+
+                <div id="allOrders">
+
+                    <div class="loading">
+                        Loading orders...
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             PROFILE
+        ================================================== -->
+
+        <section
+            id="profile"
+            class="dashboard-section is-hidden"
+        >
+
+            <div class="profile-card card">
+
+
+                <div class="profile-header">
+
+                    <div class="profile-avatar">
+                        👤
+                    </div>
+
+                    <div>
+
+                        <span class="section-label">
+                            ACCOUNT
+                        </span>
+
+                        <h2>
+                            Producer Profile
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="profile-details">
+
+
+                    <div class="profile-row">
+
+                        <span class="profile-label">
+                            Full Name
+                        </span>
+
+                        <strong id="profileName">
+                            -
+                        </strong>
+
+                    </div>
+
+
+
+                    <div class="profile-row">
+
+                        <span class="profile-label">
+                            Email
+                        </span>
+
+                        <strong id="profileEmail">
+                            -
+                        </strong>
+
+                    </div>
+
+
+
+                    <div class="profile-row">
+
+                        <span class="profile-label">
+                            Phone
+                        </span>
+
+                        <strong id="profilePhone">
+                            Not provided
+                        </strong>
+
+                    </div>
+
+
+
+                    <div class="profile-row">
+
+                        <span class="profile-label">
+                            Account Type
+                        </span>
+
+                        <strong>
+                            Producer
+                        </strong>
+
+                    </div>
+
+
+
+                    <div class="profile-row">
+
+                        <span class="profile-label">
+                            Account Status
+                        </span>
+
+                        <span class="account-status">
+                            Active
+                        </span>
+
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+
+<!-- =====================================================
+     JAVASCRIPT
+====================================================== -->
+
+<script src="/frontend/js/api.js"></script>
+
+<script src="/frontend/js/producer.js"></script>
+
+
+</body>
+
+</html>
