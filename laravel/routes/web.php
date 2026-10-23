@@ -6,6 +6,7 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\CustomerDashboardController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProducerDashboardController;
+use App\Http\Controllers\ContactController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -33,6 +34,11 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'update'])
         ->middleware('throttle:password-reset')
         ->name('password.update');
+    Route::get('/contact', [ContactController::class, 'show'])
+        ->name('contact');
+    Route::post('/contact', [ContactController::class, 'store'])
+        ->middleware('throttle:5,1')
+        ->name('contact.store');
 });
 
 Route::post('/logout', [AuthController::class, 'destroy'])
@@ -43,15 +49,15 @@ Route::get('/dashboard', function () {
     $user = request()->user();
 
     if ($user->role === 'customer') {
-        return app()->call([CustomerDashboardController::class, 'show']);
+        return app()->call([app(CustomerDashboardController::class), 'show']);
     }
 
     if ($user->role === 'producer') {
-        return app()->call([ProducerDashboardController::class, 'show']);
+        return app()->call([app(ProducerDashboardController::class), 'show']);
     }
 
     if (in_array($user->role, ['admin', 'administrator'], true)) {
-        return app()->call([AdminDashboardController::class, 'show']);
+        return app()->call([app(AdminDashboardController::class), 'show']);
     }
 
     abort(403);
@@ -67,7 +73,6 @@ Route::post('/dashboard/orders/{order}/cancel', [CustomerDashboardController::cl
 Route::middleware(['auth', 'account.usable'])->prefix('dashboard')->name('dashboard.')->group(function () {
     Route::put('/admin/producers/{producer}/status', [AdminDashboardController::class, 'updateProducerStatus'])->name('admin.producers.status');
     Route::put('/admin/products/{product}/status', [AdminDashboardController::class, 'updateProductStatus'])->name('admin.products.status');
-    Route::put('/admin/orders/{order}/status', [AdminDashboardController::class, 'updateOrderStatus'])->name('admin.orders.status');
     Route::post('/farms', [ProducerDashboardController::class, 'storeFarm'])->name('farms.store');
     Route::put('/farms/{farm}', [ProducerDashboardController::class, 'updateFarm'])->name('farms.update');
     Route::post('/products', [ProducerDashboardController::class, 'storeProduct'])->name('products.store');

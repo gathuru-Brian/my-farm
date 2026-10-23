@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:${APP_PORT:-8000}
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/lib/laravel/database.sqlite
+      DB_URL: ""
+    ports:
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - ./.env:/var/www/html/.env
+      - laravel-database:/var/lib/laravel
+      - laravel-storage:/var/www/html/storage
+    restart: unless-stopped
+
+volumes:
+  laravel-database:
+  laravel-storage:

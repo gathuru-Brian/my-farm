@@ -7,4 +7,198 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-farm-forest: #174b32;
+    --color-farm-leaf: #2f754b;
+    --color-farm-lime: #d8e9b8;
+    --color-farm-cream: #f6f8f3;
+}
+
+:root {
+    color-scheme: light;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-width: 320px;
+    background: #f6f8f3;
+    color: #172b22;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button {
+    transition:
+        color 160ms ease,
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+button:not(:disabled):active {
+    transform: translateY(1px);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid rgb(78 137 87 / 42%);
+    outline-offset: 3px;
+}
+
+input:not([type='checkbox'], [type='radio']),
+select,
+textarea {
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+input:not([type='checkbox'], [type='radio']):focus,
+select:focus,
+textarea:focus {
+    border-color: #4f9365;
+    box-shadow: 0 0 0 4px rgb(79 147 101 / 12%);
+    outline: none;
+}
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border-color: rgb(222 232 223 / 82%);
+    background: rgb(255 255 255 / 92%);
+    backdrop-filter: blur(16px);
+}
+
+.brand-mark {
+    display: grid;
+    width: 2.4rem;
+    height: 2.4rem;
+    place-items: center;
+    border: 1px solid #d9e8d8;
+    border-radius: 0.85rem;
+    background: #f1f7ed;
+    font-size: 1.15rem;
+}
+
+.site-footer {
+    border-top: 1px solid #e2e9df;
+    background: #fff;
+}
+
+.auth-shell {
+    position: relative;
+    isolation: isolate;
+}
+
+.auth-shell::before,
+.auth-shell::after {
+    position: absolute;
+    z-index: -1;
+    border-radius: 9999px;
+    content: '';
+    filter: blur(1px);
+    pointer-events: none;
+}
+
+.auth-shell::before {
+    top: 2rem;
+    left: max(-3rem, calc((100% - 52rem) / 2));
+    width: 10rem;
+    height: 10rem;
+    background: radial-gradient(circle, rgb(203 224 173 / 55%), transparent 72%);
+}
+
+.auth-shell::after {
+    right: max(-2rem, calc((100% - 54rem) / 2));
+    bottom: 1rem;
+    width: 13rem;
+    height: 13rem;
+    background: radial-gradient(circle, rgb(181 216 190 / 48%), transparent 72%);
+}
+
+.auth-card {
+    border-color: rgb(221 232 222 / 90%);
+    background: rgb(255 255 255 / 96%);
+    box-shadow:
+        0 28px 70px -42px rgb(26 69 43 / 32%),
+        0 2px 8px rgb(28 62 41 / 4%);
+}
+
+main nav[aria-label$='dashboard sections'] {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+main nav[aria-label$='dashboard sections'] > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.dashboard-shell {
+    animation: page-arrive 360ms ease-out both;
+}
+
+.dashboard-shell > div:first-child h1 {
+    color: #173526;
+    letter-spacing: -0.035em;
+}
+
+.dashboard-shell article[class*='border-[#e3ebe5]'] {
+    box-shadow:
+        0 12px 32px -28px rgb(28 69 43 / 40%),
+        0 1px 3px rgb(28 69 43 / 4%);
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+.dashboard-shell article[class*='border-[#e3ebe5]']:hover {
+    border-color: #cfddca;
+    box-shadow:
+        0 20px 38px -30px rgb(28 69 43 / 38%),
+        0 2px 6px rgb(28 69 43 / 5%);
+    transform: translateY(-2px);
+}
+
+@keyframes page-arrive {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
 }

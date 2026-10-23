@@ -1,17 +1,15 @@
 # Modern Farms frontend migration
 
 The active application UI is Svelte 5 with Inertia in `../laravel/resources/js`.
-Build and serve it through the Laravel app; this directory contains the earlier
-Flask/Vite frontend and is retained only as migration reference material.
-
-From the repository root, start Laravel for local development with:
+This directory contains the earlier static frontend and is retained as
+reference material; Laravel does not serve it. Start the Laravel application
+from the `laravel` directory:
 
 ```powershell
-python run.py
+php artisan serve
 ```
 
-This requires PHP 8.3 or later and a configured `laravel/.env`. To run the
-Laravel Vite development server alongside it, use a second terminal:
+To run the Vite development server alongside it, use a second terminal:
 
 ```powershell
 Set-Location laravel
@@ -20,5 +18,4 @@ npm run dev
 
 New frontend changes belong in Laravel's `resources/js` directory and are
 compiled with `npm run build` from `laravel`. Do not use this folder's Vite
-configuration for new work. The Flask application remains available only as a
-temporary fallback via `python backend/run.py`.
+configuration for new work.

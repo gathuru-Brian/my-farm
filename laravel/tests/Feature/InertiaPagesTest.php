@@ -122,13 +122,14 @@ class InertiaPagesTest extends TestCase
         ]);
 
         $this->get('/dashboard')
+            ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Dashboards/Customer')
                 ->where('auth.user.full_name', 'Farm Customer')
             );
     }
 
-    public function test_producer_registration_waits_for_approval_before_login(): void
+    public function test_pending_producer_can_sign_in_but_has_limited_dashboard(): void
     {
         $this->post('/register', [
             'full_name' => 'Farm Producer',
@@ -145,7 +146,16 @@ class InertiaPagesTest extends TestCase
         $this->post('/login', [
             'email' => 'producer@example.test',
             'password' => 'correct-horse-battery',
-        ])->assertSessionHasErrors('email');
+        ])->assertRedirect('/dashboard');
+
+        $this->assertAuthenticatedAs($producer);
+        $this->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboards/Producer')
+                ->where('farms', [])
+                ->where('products', [])
+            );
     }
 
     public function test_customer_can_place_an_order_and_inventory_is_updated(): void
