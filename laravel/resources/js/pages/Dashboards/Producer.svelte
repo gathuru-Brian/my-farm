@@ -1,16 +1,24 @@
 <script>
-  import { router } from "@inertiajs/svelte";
+  import { router, useForm } from "@inertiajs/svelte";
+  import DashboardTabs from "../../components/DashboardTabs.svelte";
+  import DashboardWelcome from "../../components/DashboardWelcome.svelte";
   import MessageInbox from "../../components/MessageInbox.svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
 
-  let { auth, farms = [], products = [], orders = [], customers = [], conversations = [], stats = {}, flash, errors = {} } = $props();
+  let { auth, farms = [], products = [], orders = [], customers = [], conversations = [], stats = {}, flash } = $props();
   let activeView = $state("overview");
-  let farmForm = $state({ farm_name: "", location: "", county: "", description: "" });
+  let farmForm = useForm({ farm_name: "", location: "", county: "", description: "" });
   let editingFarmId = $state(null);
-  let farmEditForm = $state({ farm_name: "", location: "", county: "", description: "", farm_size: "", farm_size_unit: "acres", phone: "", email: "", status: "active" });
-  let productForm = $state({ farm_id: "", name: "", category: "", description: "", price: "", unit: "kg", quantity_posted: "" });
+  let farmEditForm = useForm({ farm_name: "", location: "", county: "", description: "", farm_size: "", farm_size_unit: "acres", phone: "", email: "", status: "active" });
+  let productForm = useForm({ farm_id: "", name: "", category: "", description: "", price: "", unit: "kg", quantity_posted: "" });
   let editingProductId = $state(null);
-  let inventoryForm = $state({ price: "", quantity_posted: "", status: "available" });
+  let inventoryForm = useForm({ price: "", quantity_posted: "", status: "available" });
+  let bulkForm = useForm({ products: [] });
+  let bulkFarmId = $state("");
+  let bulkFileName = $state("");
+  let bulkError = $state("");
+  let bulkImporting = $state(false);
+  let bulkFileInput = $state(null);
   let autoRefresh = $state(typeof window !== "undefined" && window.localStorage.getItem("modern-farms-producer-auto-refresh") === "true");
   let orderFilter = $state("all");
   let updating = $state({});
@@ -40,6 +48,9 @@
   const field = "mt-1.5 w-full rounded-xl border border-[#d6e0d8] bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 focus:border-[#438150] focus:outline-none focus:ring-2 focus:ring-[#438150]/25";
   const cell = "rounded-lg border border-[#d6e0d8] px-2 py-1.5 text-sm focus:border-[#438150] focus:outline-none focus:ring-2 focus:ring-[#438150]/25";
   const lbl = "block text-sm font-semibold";
+  let bulkErrors = $derived(Object.entries(bulkForm.errors)
+    .filter(([key]) => key === "products" || key.startsWith("products."))
+    .map(([, message]) => message));
 
   const icons = {
     box: "M4 8l8-4 8 4v8l-8 4-8-4V8zm0 0l8 4m0 0l8-4m-8 4v8",
@@ -87,10 +98,10 @@
 
   function saveFarm(event) {
     event.preventDefault();
-    router.post("/dashboard/farms", farmForm, {
+    farmForm.post("/dashboard/farms", {
       preserveScroll: true,
       onSuccess: () => {
-        farmForm = { farm_name: "", location: "", county: "", description: "" };
+        farmForm.resetAndClearErrors();
         productForm.farm_id = farms[0]?.id ?? "";
       },
     });
@@ -98,22 +109,21 @@
 
   function startEditingFarm(farm) {
     editingFarmId = farm.id;
-    farmEditForm = {
-      farm_name: farm.farm_name,
-      location: farm.location ?? "",
-      county: farm.county ?? "",
-      description: farm.description ?? "",
-      farm_size: farm.farm_size ?? "",
-      farm_size_unit: farm.farm_size_unit ?? "acres",
-      phone: farm.phone ?? "",
-      email: farm.email ?? "",
-      status: farm.status,
-    };
+    farmEditForm.farm_name = farm.farm_name;
+    farmEditForm.location = farm.location ?? "";
+    farmEditForm.county = farm.county ?? "";
+    farmEditForm.description = farm.description ?? "";
+    farmEditForm.farm_size = farm.farm_size ?? "";
+    farmEditForm.farm_size_unit = farm.farm_size_unit ?? "acres";
+    farmEditForm.phone = farm.phone ?? "";
+    farmEditForm.email = farm.email ?? "";
+    farmEditForm.status = farm.status;
+    farmEditForm.clearErrors();
   }
 
   function saveFarmEdit(event, farm) {
     event.preventDefault();
-    router.put(`/dashboard/farms/${farm.id}`, farmEditForm, {
+    farmEditForm.put(`/dashboard/farms/${farm.id}`, {
       preserveScroll: true,
       onSuccess: () => { editingFarmId = null; },
     });
@@ -122,27 +132,177 @@
   function saveProduct(event) {
     event.preventDefault();
     productForm.farm_id ||= farms[0]?.id ?? "";
-    router.post("/dashboard/products", productForm, {
+    productForm.post("/dashboard/products", {
       preserveScroll: true,
       onSuccess: () => {
-        productForm = { farm_id: "", name: "", category: "", description: "", price: "", unit: "kg", quantity_posted: "" };
+        productForm.resetAndClearErrors();
       },
     });
   }
 
+  function parseProductCsv(csv, farmId) {
+    const records = [];
+    let row = [];
+    let fieldValue = "";
+    let insideQuotes = false;
+    const lines = csv.replace(/^\uFEFF/, "");
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const character = lines[index];
+
+      if (insideQuotes) {
+        if (character === '"' && lines[index + 1] === '"') {
+          fieldValue += '"';
+          index += 1;
+        } else if (character === '"') {
+          insideQuotes = false;
+        } else {
+          fieldValue += character;
+        }
+      } else if (character === '"' && fieldValue.length === 0) {
+        insideQuotes = true;
+      } else if (character === ",") {
+        row.push(fieldValue.trim());
+        fieldValue = "";
+      } else if (character === "\n") {
+        row.push(fieldValue.trim());
+        if (row.some((value) => value !== "")) records.push(row);
+        row = [];
+        fieldValue = "";
+      } else if (character !== "\r") {
+        fieldValue += character;
+      }
+    }
+
+    if (insideQuotes) {
+      throw new Error("The CSV has an unclosed quoted field.");
+    }
+    if (fieldValue.length > 0 || row.length > 0) {
+      row.push(fieldValue.trim());
+      if (row.some((value) => value !== "")) records.push(row);
+    }
+    if (records.length < 2) {
+      throw new Error("The CSV needs a header row and at least one product.");
+    }
+
+    const headers = records.shift().map((header) => header.toLowerCase());
+    if (new Set(headers).size !== headers.length) {
+      throw new Error("The CSV has duplicate column names.");
+    }
+
+    const allowedHeaders = ["name", "category", "description", "price", "unit", "quantity_posted", "image"];
+    const unknownHeaders = headers.filter((header) => !allowedHeaders.includes(header));
+    if (unknownHeaders.length > 0) {
+      throw new Error(`Unknown columns: ${unknownHeaders.join(", ")}.`);
+    }
+
+    const requiredHeaders = ["name", "category", "price", "quantity_posted"];
+    const missingHeaders = requiredHeaders.filter((header) => !headers.includes(header));
+    if (missingHeaders.length > 0) {
+      throw new Error(`Missing required columns: ${missingHeaders.join(", ")}.`);
+    }
+
+    if (records.length > 1500) {
+      throw new Error("A single upload can contain at most 1,500 products.");
+    }
+
+    return records.map((values, index) => {
+      if (values.length !== headers.length) {
+        throw new Error(`Row ${index + 2} has a different number of values than the header.`);
+      }
+
+      const rowValues = Object.fromEntries(headers.map((header, valueIndex) => [header, values[valueIndex]]));
+      const price = rowValues.price;
+      const quantity = rowValues.quantity_posted;
+
+      if (!rowValues.name || !rowValues.category) {
+        throw new Error(`Row ${index + 2} needs a product name and category.`);
+      }
+      if (!/^\d+(\.\d{1,2})?$/.test(price) || !/^\d+(\.\d{1,2})?$/.test(quantity) || Number(quantity) <= 0) {
+        throw new Error(`Row ${index + 2} needs a valid price and a positive quantity (up to 2 decimal places).`);
+      }
+
+      return {
+        farm_id: farmId,
+        name: rowValues.name,
+        category: rowValues.category,
+        description: rowValues.description || null,
+        price,
+        unit: rowValues.unit || "kg",
+        quantity_posted: quantity,
+        image: rowValues.image || null,
+      };
+    });
+  }
+
+  async function importProducts(event) {
+    event.preventDefault();
+    bulkError = "";
+    const file = bulkFileInput?.files?.[0];
+
+    if (!bulkFarmId) {
+      bulkError = "Choose a farm for these product listings.";
+      return;
+    }
+    if (!file) {
+      bulkError = "Choose a CSV file to upload.";
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      bulkError = "The CSV file must be 2 MB or smaller.";
+      return;
+    }
+
+    try {
+      const productsToImport = parseProductCsv(await file.text(), bulkFarmId);
+      bulkFileName = file.name;
+      bulkImporting = true;
+      bulkForm.products = productsToImport;
+      bulkForm.post("/dashboard/products/bulk", {
+        preserveScroll: true,
+        onSuccess: () => {
+          bulkError = "";
+          bulkFileName = "";
+          bulkForm.resetAndClearErrors();
+          if (bulkFileInput) bulkFileInput.value = "";
+        },
+        onError: (validationErrors) => {
+          bulkError = Object.values(validationErrors).find(Boolean) ?? "Check the product rows and try again.";
+        },
+        onFinish: () => {
+          bulkImporting = false;
+        },
+      });
+    } catch (error) {
+      bulkError = error instanceof Error ? error.message : "The CSV could not be read.";
+    }
+  }
+
+  function downloadCsvTemplate() {
+    const csv = "name,category,description,price,unit,quantity_posted,image\nTomatoes,Vegetables,Fresh tomatoes,120,kg,15,\n";
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modern-farms-products-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function startEditingProduct(product) {
     editingProductId = product.id;
-    inventoryForm = {
-      price: product.price,
-      quantity_posted: product.quantity_posted,
-      status: product.status === "inactive" ? "inactive" : "available",
-    };
+    inventoryForm.price = product.price;
+    inventoryForm.quantity_posted = product.quantity_posted;
+    inventoryForm.status = product.status === "inactive" ? "inactive" : "available";
+    inventoryForm.clearErrors();
   }
 
   function saveInventory(product) {
-    router.put(`/dashboard/products/${product.id}`, inventoryForm, {
+    inventoryForm.put(`/dashboard/products/${product.id}`, {
       preserveScroll: true,
-      onSuccess: () => { editingProductId = null; },
+      onSuccess: () => {
+        editingProductId = null;
+        inventoryForm.resetAndClearErrors();
+      },
     });
   }
 
@@ -162,41 +322,28 @@
 
 <PortalLayout title="Producer dashboard" user={auth.user}>
   <section class="dashboard-shell mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-    <!-- Banner -->
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0e3020] via-[#154a31] to-[#1f6b43] px-6 py-8 text-white shadow-lg sm:px-10 sm:py-10">
-      <div class="absolute -right-16 -top-24 size-80 rounded-full border border-white/10"></div>
-      <div class="absolute right-2 -top-10 size-52 rounded-full border border-white/10"></div>
-      <div class="relative flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold tracking-wide text-[#d8e9b8]"><span class="size-1.5 rounded-full bg-[#c6df9e]"></span> PRODUCER PORTAL</span>
-          <h1 class="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">Welcome, {auth.user.full_name}</h1>
-          <p class="mt-2 max-w-xl text-green-50/80">Manage your farms, products, inventory, and customer orders.</p>
-        </div>
+    <DashboardWelcome eyebrow="Producer portal" title={`Welcome, ${auth.user.full_name}`} description="Manage your farms, products, inventory, and customer orders.">
+      {#snippet children()}
         {#if auth.user.status === "active"}
           {#if pendingOrders.length > 0}
-            <button type="button" onclick={() => (activeView = "orders")} class="rounded-2xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950 shadow-lg transition hover:bg-amber-200">
-              {pendingOrders.length} new order{pendingOrders.length === 1 ? "" : "s"} to approve →
+            <button type="button" onclick={() => (activeView = "orders")} class="w-full rounded-2xl border border-amber-200/30 bg-amber-300 px-5 py-3.5 text-left text-sm font-extrabold text-amber-950 shadow-lg transition hover:bg-amber-200 sm:w-auto">
+              <span class="block text-xs font-bold uppercase tracking-wide text-amber-900/70">Action needed</span>
+              <span class="mt-1 block">{pendingOrders.length} new order{pendingOrders.length === 1 ? "" : "s"} to approve <span aria-hidden="true">→</span></span>
             </button>
           {:else}
-            <p class="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-3 text-sm font-semibold text-green-50"><span aria-hidden="true">✓</span> No orders waiting</p>
+            <p class="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.09] px-4 py-3 text-sm font-semibold text-green-50">
+              <span class="grid size-9 place-items-center rounded-xl bg-[#c6df9e]/15 text-[#c6df9e]" aria-hidden="true">✓</span>
+              <span><span class="block text-xs font-bold uppercase tracking-wide text-green-50/65">Orders</span><span class="mt-0.5 block">No orders waiting</span></span>
+            </p>
           {/if}
         {/if}
-      </div>
-    </div>
+      {/snippet}
+    </DashboardWelcome>
 
     {#if auth.user.status === "active"}
-      <!-- Tabs -->
-      <nav class="mt-6 flex gap-1 overflow-x-auto rounded-2xl border border-[#dce7df] bg-white p-1.5 shadow-sm" aria-label="Producer dashboard sections">
-        {#each tabs as tab}
-          <button type="button" aria-current={activeView === tab.view ? "page" : undefined}
-            class={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeView === tab.view ? "bg-[#176b3b] text-white shadow-sm" : "text-slate-600 hover:bg-[#f1f6ef]"}`}
-            onclick={() => (activeView = tab.view)}>
-            {tab.label}
-            {#if tab.badge}<span class={`rounded-full px-2 py-0.5 text-xs font-bold ${tab.tone}`}>{tab.badge}</span>{/if}
-            {#if tab.count !== undefined}<span class={`rounded-full px-2 py-0.5 text-xs font-bold ${activeView === tab.view ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{tab.count}</span>{/if}
-          </button>
-        {/each}
-      </nav>
+      <div class="mt-5">
+        <DashboardTabs tabs={tabs} activeView={activeView} onSelect={(view) => (activeView = view)} label="Producer dashboard sections" />
+      </div>
     {/if}
 
     {#if flash?.status}
@@ -298,7 +445,7 @@
                 <div class="rounded-2xl border border-[#e3ebe5] p-5">
                   {#if editingFarmId === farm.id}
                     <form onsubmit={(event) => saveFarmEdit(event, farm)} class="grid gap-4 sm:grid-cols-2">
-                      <div><label for={`edit-farm-name-${farm.id}`} class={lbl}>Farm name</label><input id={`edit-farm-name-${farm.id}`} bind:value={farmEditForm.farm_name} required maxlength="150" class={field} /></div>
+                      <div><label for={`edit-farm-name-${farm.id}`} class={lbl}>Farm name</label><input id={`edit-farm-name-${farm.id}`} bind:value={farmEditForm.farm_name} required maxlength="150" class={field} aria-invalid={farmEditForm.errors.farm_name ? "true" : undefined} />{#if farmEditForm.errors.farm_name}<p class="mt-1 text-sm text-red-700" role="alert">{farmEditForm.errors.farm_name}</p>{/if}</div>
                       <div><label for={`edit-farm-location-${farm.id}`} class={lbl}>Location</label><input id={`edit-farm-location-${farm.id}`} bind:value={farmEditForm.location} class={field} /></div>
                       <div><label for={`edit-farm-county-${farm.id}`} class={lbl}>County</label><input id={`edit-farm-county-${farm.id}`} bind:value={farmEditForm.county} class={field} /></div>
                       <div><label for={`edit-farm-phone-${farm.id}`} class={lbl}>Phone</label><input id={`edit-farm-phone-${farm.id}`} bind:value={farmEditForm.phone} class={field} /></div>
@@ -328,7 +475,7 @@
           <h2 class="text-lg font-bold">Add a farm</h2>
           <label class={`${lbl} mt-4`} for="farm-name">Farm name</label>
           <input id="farm-name" bind:value={farmForm.farm_name} maxlength="150" required class={field} />
-          {#if errors.farm_name}<p class="mt-1 text-sm text-red-700">{errors.farm_name}</p>{/if}
+          {#if farmForm.errors.farm_name}<p class="mt-1 text-sm text-red-700" role="alert">{farmForm.errors.farm_name}</p>{/if}
           <label class={`${lbl} mt-4`} for="farm-location">Location</label>
           <input id="farm-location" bind:value={farmForm.location} maxlength="200" class={field} />
           <label class={`${lbl} mt-4`} for="farm-county">County</label>
@@ -387,6 +534,7 @@
             </div>
           {/if}
         </article>
+        <div class="grid gap-6">
         <form onsubmit={saveProduct} class={`${card} p-6`}>
           <h2 class="text-lg font-bold">Add a product</h2>
           {#if farms.length === 0}
@@ -398,7 +546,7 @@
             </select>
             <label for="product-name" class={`${lbl} mt-4`}>Product name</label>
             <input id="product-name" bind:value={productForm.name} maxlength="150" required class={field} />
-            {#if errors.name}<p class="mt-1 text-sm text-red-700">{errors.name}</p>{/if}
+            {#if productForm.errors.name}<p class="mt-1 text-sm text-red-700" role="alert">{productForm.errors.name}</p>{/if}
             <label for="product-category" class={`${lbl} mt-4`}>Category</label>
             <input id="product-category" bind:value={productForm.category} maxlength="100" required class={field} />
             <div class="mt-4 grid grid-cols-2 gap-3">
@@ -412,6 +560,40 @@
             <button class={`${btnPrimary} mt-5 w-full py-3`}>Add to marketplace</button>
           {/if}
         </form>
+        <section class={`${card} p-6`} aria-labelledby="bulk-products-heading">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="bulk-products-heading" class="text-lg font-bold">Upload a product CSV</h2>
+              <p class="mt-1 text-sm leading-6 text-slate-600">Add up to 1,500 listings to one of your farms in a single upload.</p>
+            </div>
+            <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={downloadCsvTemplate}>Download template</button>
+          </div>
+          {#if farms.length > 0}
+            <form onsubmit={importProducts} class="mt-4 grid gap-4">
+              <label for="bulk-product-farm" class={lbl}>Farm for these products</label>
+              <select id="bulk-product-farm" bind:value={bulkFarmId} required class={field}>
+                <option value="">Choose a farm</option>
+                {#each farms as farm (farm.id)}
+                  <option value={farm.id}>{farm.farm_name}</option>
+                {/each}
+              </select>
+              <label for="bulk-product-file" class={lbl}>CSV file</label>
+              <input bind:this={bulkFileInput} id="bulk-product-file" type="file" accept=".csv,text/csv" class={`${field} file:mr-3 file:rounded-lg file:border-0 file:bg-[#eaf1e3] file:px-3 file:py-2 file:font-semibold file:text-[#173f2a]`} />
+              {#if bulkFileName}<p class="text-xs text-slate-500">Selected: {bulkFileName}</p>{/if}
+              <p class="text-xs leading-5 text-slate-500">Required columns: name, category, price, quantity_posted. Optional: description, unit, image. Quote values containing commas or line breaks.</p>
+              {#if bulkError}<p class="rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">{bulkError}</p>{/if}
+              {#each bulkErrors.slice(0, 3) as message}
+                <p class="rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">{message}</p>
+              {/each}
+              <button type="submit" class={`${btnPrimary} w-full py-3`} disabled={bulkImporting || bulkForm.processing}>
+                {bulkImporting || bulkForm.processing ? "Uploading products…" : "Upload products"}
+              </button>
+            </form>
+          {:else}
+            <p class="mt-4 rounded-xl bg-[#f4f8f5] p-4 text-sm text-slate-600">Create a farm before uploading product listings.</p>
+          {/if}
+        </section>
+        </div>
       </div>
     {:else if activeView === "orders"}
       <section class="mt-8">

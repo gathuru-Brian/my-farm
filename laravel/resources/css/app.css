@@ -1,7 +1,9 @@
 @import 'tailwindcss';
 
+/* stylelint-disable at-rule-no-unknown */
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+/* stylelint-enable at-rule-no-unknown */
 @source '../js/**/*.svelte';
 
 @theme {
@@ -19,16 +21,30 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    --farm-ink: #173026;
+    --farm-forest: #174b32;
+    --farm-leaf: #2f754b;
+    --farm-border: #e1e9de;
+    --farm-surface: #fff;
+    --farm-page: #f6f8f3;
 }
 
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
 }
 
 body {
     min-width: 320px;
-    background: #f6f8f3;
-    color: #172b22;
+    background:
+        radial-gradient(ellipse at 50% -18rem, rgb(220 235 214 / 42%), transparent 48rem),
+        var(--farm-page);
+    color: var(--farm-ink);
+}
+
+::selection {
+    background: #d8e9b8;
+    color: #173026;
 }
 
 button,
@@ -65,16 +81,24 @@ textarea:focus-visible {
 input:not([type='checkbox'], [type='radio']),
 select,
 textarea {
+    color: #173026;
+    color-scheme: light;
     transition:
         border-color 160ms ease,
         box-shadow 160ms ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #89978d;
+    opacity: 1;
 }
 
 input:not([type='checkbox'], [type='radio']):focus,
 select:focus,
 textarea:focus {
     border-color: #4f9365;
-    box-shadow: 0 0 0 4px rgb(79 147 101 / 12%);
+    box-shadow: 0 0 0 4px rgb(79 147 101 / 14%);
     outline: none;
 }
 
@@ -83,8 +107,9 @@ textarea:focus {
     top: 0;
     z-index: 30;
     border-color: rgb(222 232 223 / 82%);
-    background: rgb(255 255 255 / 92%);
-    backdrop-filter: blur(16px);
+    background: rgb(255 255 255 / 94%);
+    box-shadow: 0 8px 26px -24px rgb(22 57 37 / 55%);
+    backdrop-filter: blur(18px);
 }
 
 .brand-mark {
@@ -98,9 +123,33 @@ textarea:focus {
     font-size: 1.15rem;
 }
 
-.site-footer {
+.portal-footer {
     border-top: 1px solid #e2e9df;
     background: #fff;
+}
+
+.marketing-page {
+    background: #fbfcf8;
+    color: #17251c;
+}
+
+.marketing-page section[id] {
+    scroll-margin-top: 5.5rem;
+}
+
+.marketing-page h1,
+.marketing-page h2,
+.dashboard-shell h1,
+.dashboard-shell h2,
+.auth-shell h1 {
+    text-wrap: balance;
+}
+
+.marketing-footer {
+    border-top: 1px solid rgb(255 255 255 / 10%);
+    background:
+        radial-gradient(ellipse at 84% 0%, rgb(62 111 71 / 24%), transparent 34rem),
+        #0b2418;
 }
 
 .auth-shell {
@@ -140,12 +189,14 @@ textarea:focus {
     box-shadow:
         0 28px 70px -42px rgb(26 69 43 / 32%),
         0 2px 8px rgb(28 62 41 / 4%);
+    animation: page-arrive 360ms ease-out both;
 }
 
 main nav[aria-label$='dashboard sections'] {
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: thin;
+    overscroll-behavior-inline: contain;
 }
 
 main nav[aria-label$='dashboard sections'] > button {
@@ -155,6 +206,11 @@ main nav[aria-label$='dashboard sections'] > button {
 
 .dashboard-shell {
     animation: page-arrive 360ms ease-out both;
+}
+
+.dashboard-shell h1,
+.dashboard-shell h2 {
+    text-wrap: balance;
 }
 
 .dashboard-shell > div:first-child h1 {
@@ -180,6 +236,35 @@ main nav[aria-label$='dashboard sections'] > button {
     transform: translateY(-2px);
 }
 
+.dashboard-shell table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.dashboard-shell thead th {
+    letter-spacing: 0.075em;
+}
+
+.dashboard-shell tbody tr:last-child > td {
+    border-bottom: 0;
+}
+
+.dashboard-shell [role='group'] {
+    scrollbar-width: thin;
+}
+
+.message-inbox {
+    box-shadow: 0 14px 36px -30px rgb(24 69 42 / 40%);
+}
+
+.message-inbox > aside {
+    background: linear-gradient(180deg, #fff 0%, #fbfcfa 100%);
+}
+
+.message-inbox textarea {
+    min-height: 2.75rem;
+}
+
 @keyframes page-arrive {
     from {
         opacity: 0;
@@ -200,5 +285,16 @@ main nav[aria-label$='dashboard sections'] > button {
         transition-duration: 0.01ms !important;
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-shell {
+        padding-top: 1rem;
+        padding-bottom: 2.5rem;
+    }
+
+    .auth-card {
+        border-radius: 1.5rem;
     }
 }

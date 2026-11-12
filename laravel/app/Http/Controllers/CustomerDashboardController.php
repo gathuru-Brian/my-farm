@@ -31,15 +31,20 @@ class CustomerDashboardController extends Controller
             ->get()
             ->map(fn (Product $product): array => [
                 'id' => $product->id,
+                'farm_id' => $product->farm_id,
                 'name' => $product->name,
                 'category' => $product->category,
                 'description' => $product->description,
                 'price' => (float) $product->price,
                 'unit' => $product->unit,
+                'quantity_sold' => (float) $product->quantity_sold,
                 'quantity_remaining' => (float) $product->quantity_remaining,
                 'image' => $product->image,
                 'farm_name' => $product->farm?->farm_name,
+                'farm_location' => $product->farm?->location,
+                'farm_county' => $product->farm?->county,
                 'producer_name' => $product->farm?->producer?->full_name,
+                'created_at' => $product->created_at?->toIso8601String(),
             ])
             ->values();
 

@@ -8,7 +8,7 @@
   <title>{title} | Modern Farms</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col bg-[#f6f8f3] text-[#173026]">
+<div class="portal-layout flex min-h-screen flex-col bg-[#f6f8f3] text-[#173026]">
   <header class="site-header border-b">
     <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-3 lg:px-8">
       <Link href="/" class="group inline-flex items-center gap-2.5 font-bold tracking-tight text-[#174b32]">
@@ -35,7 +35,7 @@
     </div>
   </header>
   <main class="flex-1">{@render children?.()}</main>
-  <footer class="site-footer">
+  <footer class="portal-footer">
     <div class="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
       <p class="font-semibold text-[#385541]">🌱 Modern Farms</p>
       <p>Good food starts with good farms.</p>

@@ -1,29 +1,23 @@
 <script>
-  import { router } from "@inertiajs/svelte";
+  import { useForm } from "@inertiajs/svelte";
   import SiteHeader from "../components/SiteHeader.svelte";
   import SiteFooter from "../components/SiteFooter.svelte";
 
   let { auth } = $props();
 
-  let form = $state({ name: "", email: "", phone: "", topic: "General question", message: "" });
-  let errors = $state({});
-  let sending = $state(false);
+  let form = useForm({ name: "", email: "", phone: "", topic: "General question", message: "" });
   let sent = $state(false);
 
   const topics = ["General question", "Buying produce", "Selling as a producer", "Order help", "Partnerships"];
 
   function submit(e) {
     e.preventDefault();
-    sending = true;
-    router.post("/contact", form, {
+    form.post("/contact", {
       preserveScroll: true,
       onSuccess: () => {
         sent = true;
-        errors = {};
-        form = { name: "", email: "", phone: "", topic: "General question", message: "" };
+        form.resetAndClearErrors();
       },
-      onError: (errs) => (errors = errs),
-      onFinish: () => (sending = false)
     });
   }
 
@@ -35,7 +29,7 @@
   <meta name="description" content="Get in touch with the Modern Farms team." />
 </svelte:head>
 
-<div class="min-h-screen bg-[#fbfcf8] text-[#17251c] antialiased">
+<div class="marketing-page min-h-screen antialiased">
   <SiteHeader user={auth?.user} />
 
   <main>
@@ -61,19 +55,19 @@
               <div>
                 <label for="name" class="font-semibold">Full name</label>
                 <input id="name" class={field} bind:value={form.name} autocomplete="name" required />
-                {#if errors.name}<p class="mt-1 text-sm text-red-600">{errors.name}</p>{/if}
+                {#if form.errors.name}<p class="mt-1 text-sm text-red-600" role="alert">{form.errors.name}</p>{/if}
               </div>
               <div>
                 <label for="email" class="font-semibold">Email</label>
                 <input id="email" type="email" class={field} bind:value={form.email} autocomplete="email" required />
-                {#if errors.email}<p class="mt-1 text-sm text-red-600">{errors.email}</p>{/if}
+                {#if form.errors.email}<p class="mt-1 text-sm text-red-600" role="alert">{form.errors.email}</p>{/if}
               </div>
             </div>
             <div class="grid gap-5 sm:grid-cols-2">
               <div>
                 <label for="phone" class="font-semibold">Phone <span class="font-normal text-slate-500">(optional)</span></label>
                 <input id="phone" type="tel" class={field} bind:value={form.phone} autocomplete="tel" placeholder="+254" />
-                {#if errors.phone}<p class="mt-1 text-sm text-red-600">{errors.phone}</p>{/if}
+                {#if form.errors.phone}<p class="mt-1 text-sm text-red-600" role="alert">{form.errors.phone}</p>{/if}
               </div>
               <div>
                 <label for="topic" class="font-semibold">What's it about?</label>
@@ -85,10 +79,10 @@
             <div>
               <label for="message" class="font-semibold">Message</label>
               <textarea id="message" rows="6" class={field} bind:value={form.message} required></textarea>
-              {#if errors.message}<p class="mt-1 text-sm text-red-600">{errors.message}</p>{/if}
+              {#if form.errors.message}<p class="mt-1 text-sm text-red-600" role="alert">{form.errors.message}</p>{/if}
             </div>
-            <button disabled={sending} class="rounded-xl bg-[#173f2a] px-7 py-4 font-bold text-white transition hover:bg-[#1f5236] disabled:opacity-60 sm:w-fit">
-              {sending ? "Sending…" : "Send message"}
+            <button disabled={form.processing} class="rounded-xl bg-[#173f2a] px-7 py-4 font-bold text-white transition hover:bg-[#1f5236] disabled:cursor-wait disabled:opacity-60 sm:w-fit">
+              {form.processing ? "Sending…" : "Send message"}
             </button>
           </form>
         {/if}
@@ -99,7 +93,7 @@
         <div class="rounded-3xl bg-[#eaf1e3] p-7">
           <h2 class="text-xl font-bold">Contact details</h2>
           <dl class="mt-5 space-y-4 text-slate-700">
-            <div><dt class="text-sm font-semibold text-[#28623a]">Email</dt><dd>hello@modernfarms.co.ke</dd></div>
+            <div><dt class="text-sm font-semibold text-[#28623a]">Email</dt><dd>gathurubryan@gmail.com</dd></div>
             <div><dt class="text-sm font-semibold text-[#28623a]">Phone</dt><dd>+254 769 408 606</dd></div>
             <div><dt class="text-sm font-semibold text-[#28623a]">Location</dt><dd>Nairobi, Kenya</dd></div>
             <div><dt class="text-sm font-semibold text-[#28623a]">Hours</dt><dd>Mon–sun, 7.30AM – 10:00 PM</dd></div>

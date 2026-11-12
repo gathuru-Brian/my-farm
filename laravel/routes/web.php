@@ -2,16 +2,27 @@
 
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\CustomerDashboardController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProducerDashboardController;
-use App\Http\Controllers\ContactController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', fn () => Inertia::render('LandingPage'))
     ->name('home');
+
+Route::get('/about', fn () => Inertia::render('About'))
+    ->name('about');
+Route::get('/services', fn () => Inertia::render('Services'))
+    ->name('services');
+Route::get('/gallery', fn () => Inertia::render('Gallery'))
+    ->name('gallery');
+Route::get('/farm-tour', fn () => Inertia::render('FarmTour'))
+    ->name('farm-tour');
+Route::get('/blog', fn () => Inertia::render('Blog'))
+    ->name('blog');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])
@@ -76,6 +87,7 @@ Route::middleware(['auth', 'account.usable'])->prefix('dashboard')->name('dashbo
     Route::post('/farms', [ProducerDashboardController::class, 'storeFarm'])->name('farms.store');
     Route::put('/farms/{farm}', [ProducerDashboardController::class, 'updateFarm'])->name('farms.update');
     Route::post('/products', [ProducerDashboardController::class, 'storeProduct'])->name('products.store');
+    Route::post('/products/bulk', [ProducerDashboardController::class, 'storeProductsInBulk'])->name('products.bulk');
     Route::put('/products/{product}', [ProducerDashboardController::class, 'updateProduct'])->name('products.update');
     Route::post('/orders/{order}/status', [ProducerDashboardController::class, 'updateOrderStatus'])->name('orders.status');
     Route::post('/messages/conversations', [ConversationController::class, 'store'])->name('messages.conversations.store');

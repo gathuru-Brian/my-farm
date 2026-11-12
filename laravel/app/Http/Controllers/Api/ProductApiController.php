@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\CreateProductsFromBulk;
 use App\Http\Controllers\Controller;
 use App\Models\Farm;
 use App\Models\Product;
@@ -79,11 +80,12 @@ class ProductApiController extends Controller
         ], 201);
     }
 
-    public function bulk(Request $request): JsonResponse
+    public function bulk(Request $request, CreateProductsFromBulk $createProductsFromBulk): JsonResponse
     {
         abort_unless($request->user()->role === 'producer', 403, 'Only producers can add products');
         $data = $request->validate([
             'products' => ['required', 'array', 'min:1', 'max:1500'],
+            'products.*' => ['required', 'array:farm_id,name,category,description,price,unit,quantity_posted,image'],
             'products.*.farm_id' => ['required', 'integer', 'exists:farms,id'],
             'products.*.name' => ['required', 'string', 'max:150'],
             'products.*.category' => ['required', 'string', 'max:100'],
@@ -94,31 +96,11 @@ class ProductApiController extends Controller
             'products.*.image' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $created = DB::transaction(function () use ($data, $request) {
-            $products = [];
-
-            foreach ($data['products'] as $item) {
-                $farm = Farm::whereKey($item['farm_id'])
-                    ->where('producer_id', $request->user()->id)
-                    ->firstOrFail();
-                $quantity = $item['quantity_posted'];
-                $products[] = $farm->products()->create([
-                    ...$item,
-                    'name' => trim($item['name']),
-                    'category' => trim($item['category']),
-                    'unit' => $item['unit'] ?? 'kg',
-                    'quantity_sold' => 0,
-                    'quantity_remaining' => $quantity,
-                    'status' => 'available',
-                ]);
-            }
-
-            return $products;
-        });
+        $created = $createProductsFromBulk->handle($request->user(), $data['products']);
 
         return response()->json([
             'success' => true,
-            'count' => count($created),
+            'count' => $created->count(),
             'products' => collect($created)
                 ->map(fn (Product $product) => $this->serialize($product->load(['farm.producer']))),
         ], 201);

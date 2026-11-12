@@ -1,5 +1,7 @@
 <script>
   import { router } from "@inertiajs/svelte";
+  import DashboardTabs from "../../components/DashboardTabs.svelte";
+  import DashboardWelcome from "../../components/DashboardWelcome.svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
 
   let { auth, stats = {}, producers = [], customers = [], products = [], orders = [], flash } = $props();
@@ -10,6 +12,8 @@
   let range = $state(7);
   let orderSearch = $state("");
   let orderFilter = $state("all");
+  let selected = $state(null); // { type: "producer" | "customer", id }
+  let closeButton = $state(null);
 
   const DAY = 86400000;
   const orderStatuses = ["pending", "confirmed", "processing", "ready", "shipped", "delivered", "cancelled"];
@@ -130,48 +134,78 @@
     { label: "Revenue", value: currency.format(revenue), sub: "excluding cancelled", icon: icons.coin, tile: "bg-amber-100", stroke: "#a16207", spark: hasDates ? spark(week.map((p) => p.revenue)) : null, sparkColor: "#d4a017", view: "orders" }
   ]);
 
+  // Detail panel: everything the page knows about one producer or customer
+  let selectedProducer = $derived(selected?.type === "producer" ? producers.find((p) => p.id === selected.id) ?? null : null);
+  let selectedCustomer = $derived(selected?.type === "customer" ? customers.find((c) => c.id === selected.id) ?? null : null);
+  let detailOpen = $derived(Boolean(selectedProducer || selectedCustomer));
+
+  let producerFarmNames = $derived(new Set((selectedProducer?.farms ?? []).map((f) => f.name)));
+  let producerProducts = $derived(selectedProducer
+    ? products.filter((p) => (p.producer_id !== undefined ? p.producer_id === selectedProducer.id : p.producer_name === selectedProducer.name))
+    : []);
+  let producerOrders = $derived(selectedProducer ? orders.filter((o) => (o.items ?? []).some((i) => producerFarmNames.has(i.farm_name))) : []);
+  let producerRevenue = $derived(producerOrders
+    .filter((o) => o.status !== "cancelled")
+    .reduce((sum, o) => sum + (o.items ?? []).filter((i) => producerFarmNames.has(i.farm_name)).reduce((s, i) => s + Number(i.subtotal || 0), 0), 0));
+  let customerOrders = $derived(selectedCustomer
+    ? orders.filter((o) => (o.customer_email && o.customer_email === selectedCustomer.email) || (!o.customer_email && o.customer_name === selectedCustomer.name))
+    : []);
+  let customerAddresses = $derived([...new Set(customerOrders.map((o) => o.delivery_address).filter(Boolean))]);
+
+  const shownKeys = {
+    producer: ["id", "name", "email", "phone", "status", "created_at", "product_count", "farms"],
+    customer: ["id", "name", "email", "phone", "created_at", "order_count", "total_spent"]
+  };
+  const humanize = (k) => k.replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase());
+  // Any extra plain fields the controller sends (address, county, ...) show up automatically
+  function extraFields(obj, type) {
+    if (!obj) return [];
+    return Object.entries(obj)
+      .filter(([k, v]) => !shownKeys[type].includes(k) && v !== null && v !== "" && ["string", "number", "boolean"].includes(typeof v))
+      .map(([k, v]) => [humanize(k), typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)]);
+  }
+  function farmMeta(farm) {
+    return Object.entries(farm)
+      .filter(([k, v]) => !["id", "name", "products_count"].includes(k) && v !== null && v !== "" && ["string", "number"].includes(typeof v))
+      .map(([, v]) => String(v)).join(" · ");
+  }
+  const fullDate = (v) => (v && !Number.isNaN(new Date(v).getTime()) ? new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(v)) : "—");
+  const openDetail = (type, id) => { selected = { type, id }; };
+  const closeDetail = () => { selected = null; };
+
+  $effect(() => { if (detailOpen) closeButton?.focus(); });
+
   function setProducerStatus(producer, status) {
     router.put(`/dashboard/admin/producers/${producer.id}/status`, { status }, { preserveScroll: true });
   }
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === "Escape" && detailOpen) closeDetail(); }} />
+
 <PortalLayout title="Admin dashboard" user={auth.user}>
   <section class="dashboard-shell mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-    <!-- Banner -->
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0e3020] via-[#154a31] to-[#1f6b43] px-6 py-8 text-white shadow-lg sm:px-10 sm:py-10">
-      <div class="absolute -right-16 -top-24 size-80 rounded-full border border-white/10"></div>
-      <div class="absolute right-2 -top-10 size-52 rounded-full border border-white/10"></div>
-      <div class="relative flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold tracking-wide text-[#d8e9b8]"><span class="size-1.5 rounded-full bg-[#c6df9e]"></span> ADMINISTRATION · SUPPORT</span>
-          <h1 class="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">Welcome back{auth?.user?.name ? `, ${auth.user.name}` : ""}</h1>
-          <p class="mt-2 max-w-xl text-green-50/80">Approve producer accounts and keep an eye on everything happening across Modern Farms.</p>
-        </div>
-        <div class="flex flex-wrap gap-3">
+    <DashboardWelcome eyebrow="Administration · support" title={auth.user.full_name ? `Welcome back, ${auth.user.full_name}` : "Welcome back"} description="Approve producer accounts and keep an eye on everything happening across Modern Farms.">
+      {#snippet children()}
+        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center xl:justify-end">
           {#if (stats.producers_pending ?? 0) > 0}
-            <button type="button" onclick={() => (activeView = "producers")} class="rounded-2xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950 shadow-lg transition hover:bg-amber-200">
-              {stats.producers_pending} producer{stats.producers_pending === 1 ? "" : "s"} awaiting approval →
+            <button type="button" onclick={() => (activeView = "producers")} class="rounded-2xl border border-amber-200/30 bg-amber-300 px-5 py-3.5 text-left text-sm font-extrabold text-amber-950 shadow-lg transition hover:bg-amber-200">
+              <span class="block text-xs font-bold uppercase tracking-wide text-amber-900/70">Action needed</span>
+              <span class="mt-1 block">{stats.producers_pending} producer{stats.producers_pending === 1 ? "" : "s"} awaiting approval <span aria-hidden="true">→</span></span>
             </button>
           {:else}
-            <p class="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-3 text-sm font-semibold text-green-50"><span aria-hidden="true">✓</span> You're all caught up</p>
+            <p class="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.09] px-4 py-3 text-sm font-semibold text-green-50">
+              <span class="grid size-9 place-items-center rounded-xl bg-[#c6df9e]/15 text-[#c6df9e]" aria-hidden="true">✓</span>
+              <span><span class="block text-xs font-bold uppercase tracking-wide text-green-50/65">Moderation queue</span><span class="mt-0.5 block">You're all caught up</span></span>
+            </p>
           {/if}
-          <a href="/" class="rounded-2xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20">View marketplace</a>
+          <a href="/" class="rounded-2xl border border-white/20 bg-white/[0.07] px-4 py-3.5 text-center text-sm font-semibold text-white transition hover:bg-white/[0.14]">View marketplace</a>
         </div>
-      </div>
-    </div>
+      {/snippet}
+    </DashboardWelcome>
 
-    <!-- Tabs -->
-    <nav class="mt-6 flex gap-1 overflow-x-auto rounded-2xl border border-[#dce7df] bg-white p-1.5 shadow-sm" aria-label="Admin dashboard sections">
-      {#each tabs as tab}
-        <button type="button" aria-current={activeView === tab.view ? "page" : undefined}
-          class={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeView === tab.view ? "bg-[#176b3b] text-white shadow-sm" : "text-slate-600 hover:bg-[#f1f6ef]"}`}
-          onclick={() => (activeView = tab.view)}>
-          {tab.label}
-          {#if tab.badge}<span class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-amber-950">{tab.badge}</span>{/if}
-          {#if tab.count !== undefined}<span class={`rounded-full px-2 py-0.5 text-xs font-bold ${activeView === tab.view ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{tab.count}</span>{/if}
-        </button>
-      {/each}
-    </nav>
+    <div class="mt-5">
+      <DashboardTabs tabs={tabs} activeView={activeView} onSelect={(view) => (activeView = view)} label="Admin dashboard sections" />
+    </div>
 
     {#if flash?.status}
       <p class="mt-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-3.5 text-sm font-medium text-green-900" role="status"><span aria-hidden="true">✓</span> {flash.status}</p>
@@ -316,7 +350,7 @@
                   <li class="flex flex-wrap items-center justify-between gap-3 py-3.5">
                     <div class="flex items-center gap-3">
                       <span class={`grid size-10 place-items-center rounded-full font-bold ${tone(i)}`} aria-hidden="true">{producer.name?.[0] ?? "?"}</span>
-                      <div><p class="font-semibold">{producer.name}</p><p class="text-sm text-slate-500">{producer.email} · {producer.farms.length} farms</p></div>
+                      <button type="button" class="text-left" onclick={() => openDetail("producer", producer.id)}><span class="block font-semibold transition hover:text-[#176b3b] hover:underline">{producer.name}</span><span class="block text-sm text-slate-500">{producer.email} · {producer.farms.length} farms</span></button>
                     </div>
                     <button type="button" class={btnPrimary} onclick={() => setProducerStatus(producer, "approved")}>Approve</button>
                   </li>
@@ -353,13 +387,14 @@
                 <div class="flex items-start gap-4">
                   <span class={`grid size-12 shrink-0 place-items-center rounded-full text-lg font-bold ${tone(i)}`} aria-hidden="true">{producer.name?.[0] ?? "?"}</span>
                   <div>
-                    <h3 class="text-lg font-bold">{producer.name}</h3>
+                    <h3 class="text-lg font-bold"><button type="button" class="text-left transition hover:text-[#176b3b] hover:underline" onclick={() => openDetail("producer", producer.id)}>{producer.name}</button></h3>
                     <p class="mt-1 text-sm text-slate-600">{producer.email}{producer.phone ? ` · ${producer.phone}` : ""}</p>
                     <p class="mt-1 text-sm text-slate-500">{producer.product_count} products across {producer.farms.length} farms</p>
                   </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                   <span class={`rounded-full px-3 py-1 text-sm font-bold capitalize ${badgeClass(producer.status)}`}>{producer.status}</span>
+                  <button type="button" class="rounded-xl border border-[#d6e0d8] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-[#f1f6ef]" onclick={() => openDetail("producer", producer.id)}>View details</button>
                   {#if producer.status !== "active"}<button type="button" class={btnPrimary} onclick={() => setProducerStatus(producer, "approved")}>Approve</button>{/if}
                   {#if producer.status === "pending"}
                     <button type="button" class={btnDanger} onclick={() => setProducerStatus(producer, "rejected")}>Reject</button>
@@ -399,18 +434,19 @@
         <p class="mt-1 text-sm text-slate-500">Everyone who has joined the marketplace as a buyer.</p>
         <div class={`${card} mt-5 overflow-x-auto`}>
           <table class="w-full min-w-[700px] text-left text-sm">
-            <thead class="bg-[#f4f8f5] text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-6 py-3.5 font-semibold">Customer</th><th class="px-6 py-3.5 font-semibold">Phone</th><th class="px-6 py-3.5 font-semibold">Orders</th><th class="px-6 py-3.5 font-semibold">Order value</th><th class="px-6 py-3.5 font-semibold">Joined</th></tr></thead>
+            <thead class="bg-[#f4f8f5] text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-6 py-3.5 font-semibold">Customer</th><th class="px-6 py-3.5 font-semibold">Phone</th><th class="px-6 py-3.5 font-semibold">Orders</th><th class="px-6 py-3.5 font-semibold">Order value</th><th class="px-6 py-3.5 font-semibold">Joined</th><th class="px-6 py-3.5 font-semibold"><span class="sr-only">Details</span></th></tr></thead>
             <tbody class="divide-y divide-slate-100">
               {#each customers as customer, i (customer.id)}
                 <tr class="transition hover:bg-[#fafcf9]">
-                  <td class="px-6 py-4"><div class="flex items-center gap-3"><span class={`grid size-9 place-items-center rounded-full font-bold ${tone(i)}`} aria-hidden="true">{customer.name?.[0] ?? "?"}</span><div><p class="font-semibold">{customer.name}</p><p class="text-xs text-slate-500">{customer.email}</p></div></div></td>
+                  <td class="px-6 py-4"><div class="flex items-center gap-3"><span class={`grid size-9 place-items-center rounded-full font-bold ${tone(i)}`} aria-hidden="true">{customer.name?.[0] ?? "?"}</span><button type="button" class="text-left" onclick={() => openDetail("customer", customer.id)}><span class="block font-semibold transition hover:text-[#176b3b] hover:underline">{customer.name}</span><span class="block text-xs text-slate-500">{customer.email}</span></button></div></td>
                   <td class="px-6 py-4">{customer.phone ?? "—"}</td>
                   <td class="px-6 py-4 font-semibold">{customer.order_count}</td>
                   <td class="px-6 py-4 font-semibold">{currency.format(customer.total_spent)}</td>
                   <td class="px-6 py-4 text-slate-500">{customer.created_at ? new Intl.DateTimeFormat("en-KE", { dateStyle: "medium" }).format(new Date(customer.created_at)) : "—"}</td>
+                  <td class="px-6 py-4 text-right"><button type="button" class="font-bold text-[#176b3b] hover:underline" onclick={() => openDetail("customer", customer.id)}>View →</button></td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">No customer accounts yet.</td></tr>
+                <tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">No customer accounts yet.</td></tr>
               {/each}
             </tbody>
           </table>
@@ -483,4 +519,134 @@
       </section>
     {/if}
   </section>
+
+  {#if detailOpen}
+    {@const person = selectedProducer ?? selectedCustomer}
+    <div class="fixed inset-0 z-50 flex justify-end">
+      <button type="button" tabindex="-1" aria-label="Close details" class="absolute inset-0 cursor-default bg-[#0b2418]/50 backdrop-blur-sm" onclick={closeDetail}></button>
+      <dialog open aria-modal="true" aria-labelledby="detail-title" class="relative flex h-full w-full max-w-xl flex-col bg-[#fbfcf8] shadow-2xl">
+        <div class="bg-gradient-to-br from-[#0e3020] via-[#154a31] to-[#1f6b43] px-6 pb-6 pt-5 text-white">
+          <div class="flex items-start justify-between">
+            <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold tracking-wide text-[#d8e9b8]">{selectedProducer ? "PRODUCER" : "CUSTOMER"}</span>
+            <button bind:this={closeButton} type="button" aria-label="Close details" class="grid size-9 place-items-center rounded-xl bg-white/10 transition hover:bg-white/20" onclick={closeDetail}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </div>
+          <div class="mt-5 flex items-center gap-4">
+            <span class="grid size-16 shrink-0 place-items-center rounded-full bg-[#d8e9b8] text-2xl font-extrabold text-[#173f2a]" aria-hidden="true">{person.name?.[0] ?? "?"}</span>
+            <div class="min-w-0">
+              <h2 id="detail-title" class="truncate text-2xl font-extrabold tracking-tight">{person.name}</h2>
+              <p class="truncate text-sm text-green-50/80">{person.email}</p>
+            </div>
+          </div>
+          {#if selectedProducer}
+            <span class={`mt-4 inline-block rounded-full px-3 py-1 text-sm font-bold capitalize ${badgeClass(selectedProducer.status)}`}>{selectedProducer.status}</span>
+          {/if}
+        </div>
+
+        <div class="flex-1 space-y-7 overflow-y-auto p-6">
+          {#if selectedProducer}
+            <div class="grid grid-cols-3 gap-3">
+              {#each [["Farms", selectedProducer.farms.length], ["Products", selectedProducer.product_count], ["Revenue", currency.format(producerRevenue).replace(".00", "")]] as [label, value]}
+                <div class={`${card} p-4 text-center`}><p class="text-xs font-semibold text-slate-500">{label}</p><p class="mt-1 text-lg font-extrabold text-[#173f2a]">{value}</p></div>
+              {/each}
+            </div>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Account details</h3>
+              <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                {#each [["Email", selectedProducer.email], ["Phone", selectedProducer.phone ?? "Not provided"], ["Registered", fullDate(selectedProducer.created_at)], ["Account status", selectedProducer.status], ...extraFields(selectedProducer, "producer")] as [label, value]}
+                  <div class="rounded-xl bg-white p-4 ring-1 ring-[#e3ebe5]"><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt><dd class={`mt-1 break-words font-semibold ${label === "Account status" ? "capitalize" : ""}`}>{value}</dd></div>
+                {/each}
+              </dl>
+            </section>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Farms ({selectedProducer.farms.length})</h3>
+              <ul class="mt-3 space-y-2">
+                {#each selectedProducer.farms as farm (farm.id)}
+                  <li class="rounded-xl bg-white p-4 ring-1 ring-[#e3ebe5]"><div class="flex justify-between gap-3"><span class="font-semibold">{farm.name}</span><span class="text-sm text-slate-500">{farm.products_count} products</span></div>{#if farmMeta(farm)}<p class="mt-1 text-sm capitalize text-slate-500">{farmMeta(farm)}</p>{/if}</li>
+                {:else}
+                  <li class="rounded-xl bg-[#f4f8f5] p-4 text-sm text-slate-500">No farms added yet.</li>
+                {/each}
+              </ul>
+            </section>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Products ({producerProducts.length})</h3>
+              <ul class="mt-3 divide-y divide-slate-100 rounded-xl bg-white px-4 ring-1 ring-[#e3ebe5]">
+                {#each producerProducts.slice(0, 8) as product (product.id)}
+                  <li class="flex items-center justify-between gap-3 py-3 text-sm"><span><span class="block font-semibold">{product.name}</span><span class="text-xs text-slate-500">{currency.format(product.price)} / {product.unit} · {product.quantity_remaining} left</span></span><span class={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${badgeClass(product.status)}`}>{product.status.replaceAll("_", " ")}</span></li>
+                {:else}
+                  <li class="py-4 text-sm text-slate-500">No products listed.</li>
+                {/each}
+              </ul>
+              {#if producerProducts.length > 8}<p class="mt-2 text-xs text-slate-500">+ {producerProducts.length - 8} more products</p>{/if}
+            </section>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Orders ({producerOrders.length})</h3>
+              <ul class="mt-3 divide-y divide-slate-100 rounded-xl bg-white px-4 ring-1 ring-[#e3ebe5]">
+                {#each producerOrders.slice(0, 6) as order (order.id)}
+                  <li class="flex items-center justify-between gap-3 py-3 text-sm"><span><span class="block font-semibold">Order #{order.id} · {order.customer_name ?? "Customer"}</span><span class="text-xs text-slate-500">{fullDate(order.created_at)}</span></span><span class={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${badgeClass(order.status)}`}>{order.status}</span></li>
+                {:else}
+                  <li class="py-4 text-sm text-slate-500">No orders for this producer yet.</li>
+                {/each}
+              </ul>
+            </section>
+
+            <section class="flex flex-wrap gap-2 border-t border-slate-200 pt-5">
+              {#if selectedProducer.status !== "active"}<button type="button" class={btnPrimary} onclick={() => setProducerStatus(selectedProducer, "approved")}>Approve</button>{/if}
+              {#if selectedProducer.status === "pending"}
+                <button type="button" class={btnDanger} onclick={() => setProducerStatus(selectedProducer, "rejected")}>Reject</button>
+              {:else if selectedProducer.status === "active"}
+                <button type="button" class={btnWarn} onclick={() => setProducerStatus(selectedProducer, "suspended")}>Suspend</button>
+              {/if}
+            </section>
+          {:else if selectedCustomer}
+            <div class="grid grid-cols-3 gap-3">
+              {#each [["Orders", selectedCustomer.order_count], ["Total spent", currency.format(selectedCustomer.total_spent).replace(".00", "")], ["Addresses", customerAddresses.length]] as [label, value]}
+                <div class={`${card} p-4 text-center`}><p class="text-xs font-semibold text-slate-500">{label}</p><p class="mt-1 text-lg font-extrabold text-[#173f2a]">{value}</p></div>
+              {/each}
+            </div>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Account details</h3>
+              <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                {#each [["Email", selectedCustomer.email], ["Phone", selectedCustomer.phone ?? "Not provided"], ["Joined", fullDate(selectedCustomer.created_at)], ...extraFields(selectedCustomer, "customer")] as [label, value]}
+                  <div class="rounded-xl bg-white p-4 ring-1 ring-[#e3ebe5]"><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt><dd class="mt-1 break-words font-semibold">{value}</dd></div>
+                {/each}
+              </dl>
+            </section>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Delivery addresses used</h3>
+              <ul class="mt-3 space-y-2">
+                {#each customerAddresses as address}
+                  <li class="rounded-xl bg-white p-4 text-sm ring-1 ring-[#e3ebe5]">{address}</li>
+                {:else}
+                  <li class="rounded-xl bg-[#f4f8f5] p-4 text-sm text-slate-500">No orders placed yet.</li>
+                {/each}
+              </ul>
+            </section>
+
+            <section>
+              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Order history ({customerOrders.length})</h3>
+              <ul class="mt-3 space-y-3">
+                {#each customerOrders.slice(0, 8) as order (order.id)}
+                  <li class="rounded-xl bg-white p-4 ring-1 ring-[#e3ebe5]">
+                    <div class="flex items-start justify-between gap-3"><div><p class="font-semibold">Order #{order.id}</p><p class="text-xs text-slate-500">{fullDate(order.created_at)}</p></div><div class="text-right"><span class={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${badgeClass(order.status)}`}>{order.status}</span><p class="mt-1 text-sm font-bold">{currency.format(order.total_amount)}</p></div></div>
+                    <p class="mt-2 text-sm text-slate-600">{(order.items ?? []).map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(", ")}</p>
+                  </li>
+                {:else}
+                  <li class="rounded-xl bg-[#f4f8f5] p-4 text-sm text-slate-500">This customer has not ordered yet.</li>
+                {/each}
+              </ul>
+              {#if customerOrders.length > 8}<p class="mt-2 text-xs text-slate-500">+ {customerOrders.length - 8} more orders</p>{/if}
+            </section>
+          {/if}
+        </div>
+      </dialog>
+    </div>
+  {/if}
 </PortalLayout>

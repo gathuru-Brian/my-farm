@@ -1,10 +1,11 @@
 <script>
-  import { router } from "@inertiajs/svelte";
+  import { router, useForm } from "@inertiajs/svelte";
 
   let { user, producers = [], conversations = [], errors = {} } = $props();
   let selectedId = $state(null);
   let selectedProducerId = $state("");
-  let draft = $state("");
+  let newConversationForm = useForm({ producer_id: "" });
+  let messageForm = useForm({ body: "" });
   let selectedConversation = $derived(conversations.find((conversation) => conversation.id === (selectedId ?? conversations[0]?.id)) ?? null);
 
   const formatTime = (value) => value
@@ -16,7 +17,8 @@
     const producerId = selectedProducerId || producers[0]?.id;
     if (!producerId) return;
 
-    router.post("/dashboard/messages/conversations", { producer_id: producerId }, {
+    newConversationForm.producer_id = String(producerId);
+    newConversationForm.post("/dashboard/messages/conversations", {
       preserveScroll: true,
       onSuccess: (page) => {
         const matching = page.props.conversations?.find((conversation) => conversation.peer.id === Number(producerId));
@@ -37,16 +39,16 @@
 
   function sendMessage(event) {
     event.preventDefault();
-    if (!selectedConversation || !draft.trim()) return;
+    if (!selectedConversation || !messageForm.body.trim()) return;
 
-    router.post(`/dashboard/messages/conversations/${selectedConversation.id}`, { body: draft }, {
+    messageForm.post(`/dashboard/messages/conversations/${selectedConversation.id}`, {
       preserveScroll: true,
-      onSuccess: () => { draft = ""; },
+      onSuccess: () => { messageForm.resetAndClearErrors(); },
     });
   }
 </script>
 
-<div class="grid min-h-[520px] overflow-hidden rounded-2xl border border-[#e3ebe5] bg-white shadow-sm md:grid-cols-[280px_minmax(0,1fr)]">
+<div class="message-inbox grid min-h-[520px] overflow-hidden rounded-2xl border border-[#e3ebe5] bg-white shadow-sm md:grid-cols-[280px_minmax(0,1fr)]">
   <aside class="border-b border-[#e3ebe5] md:border-b-0 md:border-r">
     <div class="border-b border-slate-100 p-4">
       <h2 class="font-bold">Conversations</h2>
@@ -55,8 +57,9 @@
           <select value={selectedProducerId || producers[0]?.id || ""} onchange={(event) => selectedProducerId = event.currentTarget.value} aria-label="Choose a producer" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-2 text-sm">
             {#each producers as producer (producer.id)}<option value={producer.id}>{producer.name}</option>{/each}
           </select>
-          <button type="submit" class="rounded-lg bg-[#176b3b] px-3 py-2 text-sm font-bold text-white hover:bg-[#0b482b]">New</button>
+          <button type="submit" disabled={newConversationForm.processing} class="rounded-lg bg-[#176b3b] px-3 py-2 text-sm font-bold text-white hover:bg-[#0b482b] disabled:cursor-wait disabled:opacity-60">{newConversationForm.processing ? "…" : "New"}</button>
         </form>
+        {#if newConversationForm.errors.producer_id}<p class="px-4 pb-3 text-xs text-red-700" role="alert">{newConversationForm.errors.producer_id}</p>{/if}
       {:else if user.role === "customer"}
         <p class="mt-2 text-xs text-slate-500">No active producers are available to message.</p>
       {/if}
@@ -102,10 +105,10 @@
       </div>
       {#if selectedConversation.peer.is_active}
         <form onsubmit={sendMessage} class="border-t border-slate-100 p-4">
-          {#if errors.body}<p class="mb-2 text-sm text-red-700" role="alert">{errors.body}</p>{/if}
+          {#if messageForm.errors.body || errors.body}<p class="mb-2 text-sm text-red-700" role="alert">{messageForm.errors.body ?? errors.body}</p>{/if}
           <div class="flex items-end gap-2">
-            <textarea bind:value={draft} maxlength="2000" rows="2" aria-label="Message text" placeholder="Write a message…" class="min-w-0 flex-1 resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-[#176b3b] focus:outline-none focus:ring-2 focus:ring-[#176b3b]/20"></textarea>
-            <button type="submit" disabled={!draft.trim()} class="rounded-xl bg-[#176b3b] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0b482b] disabled:cursor-not-allowed disabled:bg-slate-300">Send</button>
+            <textarea bind:value={messageForm.body} maxlength="2000" rows="2" aria-label="Message text" placeholder="Write a message…" class="min-w-0 flex-1 resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-[#176b3b] focus:outline-none focus:ring-2 focus:ring-[#176b3b]/20"></textarea>
+            <button type="submit" disabled={!messageForm.body.trim() || messageForm.processing} class="rounded-xl bg-[#176b3b] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0b482b] disabled:cursor-not-allowed disabled:bg-slate-300">{messageForm.processing ? "Sending…" : "Send"}</button>
           </div>
         </form>
       {:else}

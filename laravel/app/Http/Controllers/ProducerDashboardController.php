@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\ChangeOrderStatus;
 use App\Actions\ConversationInbox;
+use App\Actions\CreateProductsFromBulk;
 use App\Models\Farm;
 use App\Models\Order;
 use App\Models\Product;
@@ -225,6 +226,27 @@ class ProducerDashboardController extends Controller
         ]);
 
         return to_route('dashboard')->with('status', 'Product added to your inventory.');
+    }
+
+    public function storeProductsInBulk(Request $request, CreateProductsFromBulk $createProductsFromBulk): RedirectResponse
+    {
+        $producer = $this->activeProducer($request->user());
+        $data = $request->validate([
+            'products' => ['required', 'array', 'min:1', 'max:1500'],
+            'products.*' => ['required', 'array:farm_id,name,category,description,price,unit,quantity_posted,image'],
+            'products.*.farm_id' => ['required', 'integer', Rule::exists('farms', 'id')],
+            'products.*.name' => ['required', 'string', 'max:150'],
+            'products.*.category' => ['required', 'string', 'max:100'],
+            'products.*.description' => ['nullable', 'string'],
+            'products.*.price' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
+            'products.*.unit' => ['nullable', 'string', 'max:50'],
+            'products.*.quantity_posted' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
+            'products.*.image' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $created = $createProductsFromBulk->handle($producer, $data['products']);
+
+        return to_route('dashboard')->with('status', $created->count().' products added to your inventory.');
     }
 
     public function updateProduct(Request $request, Product $product): RedirectResponse

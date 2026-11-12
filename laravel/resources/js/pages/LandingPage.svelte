@@ -74,7 +74,7 @@
   <meta name="description" content="Discover fresh farm products and connect directly with local producers through Modern Farms." />
 </svelte:head>
 
-<div class="min-h-screen bg-[#fbfcf8] text-[#17251c] antialiased">
+<div class="marketing-page min-h-screen antialiased">
   <SiteHeader user={auth?.user} />
 
   <main>

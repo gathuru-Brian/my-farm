@@ -1,15 +1,14 @@
 <script>
-  import { Link, router } from "@inertiajs/svelte";
+  import { Link, useForm } from "@inertiajs/svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
 
-  let { email = "", token = "", errors = {}, flash = {} } = $props();
-  let form = $state({
+  let { email = "", token = "", flash = {} } = $props();
+  let form = useForm({
     email: "",
     token: "",
     password: "",
     password_confirmation: ""
   });
-  let processing = $state(false);
 
   $effect(() => {
     form.email = email;
@@ -18,10 +17,7 @@
 
   function submit(event) {
     event.preventDefault();
-    processing = true;
-    router.post("/reset-password", form, {
-      onFinish: () => processing = false
-    });
+    form.post("/reset-password");
   }
 </script>
 
@@ -41,14 +37,14 @@
           <label for="email" class="mb-2 block text-sm font-semibold text-[#263c2e]">Email address</label>
           <input id="email" bind:value={form.email} type="email" autocomplete="email" required
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
-          {#if errors.email}<p class="mt-2 text-sm text-red-700" role="alert">{errors.email}</p>{/if}
+          {#if form.errors.email}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.email}</p>{/if}
         </div>
 
         <div>
           <label for="password" class="mb-2 block text-sm font-semibold text-[#263c2e]">New password</label>
           <input id="password" bind:value={form.password} type="password" autocomplete="new-password" required minlength="8"
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
-          {#if errors.password}<p class="mt-2 text-sm text-red-700" role="alert">{errors.password}</p>{/if}
+          {#if form.errors.password}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.password}</p>{/if}
         </div>
 
         <div>
@@ -57,9 +53,9 @@
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
         </div>
 
-        <button type="submit" disabled={processing}
+        <button type="submit" disabled={form.processing}
           class="w-full rounded-xl bg-[#1b5d3a] px-5 py-3.5 font-bold text-white shadow-sm shadow-[#1b5d3a]/15 hover:-translate-y-0.5 hover:bg-[#12472d] disabled:cursor-wait disabled:opacity-60">
-          {processing ? "Updating…" : "Reset password"}
+          {form.processing ? "Updating…" : "Reset password"}
         </button>
       </form>
 

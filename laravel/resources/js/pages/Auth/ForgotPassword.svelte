@@ -1,17 +1,13 @@
 <script>
-  import { Link, router } from "@inertiajs/svelte";
+  import { Link, useForm } from "@inertiajs/svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
 
-  let { errors = {}, flash = {} } = $props();
-  let form = $state({ email: "" });
-  let processing = $state(false);
+  let { flash = {} } = $props();
+  let form = useForm({ email: "" });
 
   function submit(event) {
     event.preventDefault();
-    processing = true;
-    router.post("/forgot-password", form, {
-      onFinish: () => processing = false
-    });
+    form.post("/forgot-password");
   }
 </script>
 
@@ -31,12 +27,12 @@
           <label for="email" class="mb-2 block text-sm font-semibold text-[#263c2e]">Email address</label>
           <input id="email" bind:value={form.email} type="email" autocomplete="email" required
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
-          {#if errors.email}<p class="mt-2 text-sm text-red-700" role="alert">{errors.email}</p>{/if}
+          {#if form.errors.email}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.email}</p>{/if}
         </div>
 
-        <button type="submit" disabled={processing}
+        <button type="submit" disabled={form.processing}
           class="w-full rounded-xl bg-[#1b5d3a] px-5 py-3.5 font-bold text-white shadow-sm shadow-[#1b5d3a]/15 hover:-translate-y-0.5 hover:bg-[#12472d] disabled:cursor-wait disabled:opacity-60">
-          {processing ? "Sending…" : "Send reset link"}
+          {form.processing ? "Sending…" : "Send reset link"}
         </button>
       </form>
 

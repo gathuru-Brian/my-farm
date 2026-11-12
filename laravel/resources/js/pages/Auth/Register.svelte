@@ -1,9 +1,8 @@
 <script>
-  import { Link, router } from "@inertiajs/svelte";
+  import { Link, useForm } from "@inertiajs/svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
 
-  let { errors = {} } = $props();
-  let form = $state({
+  let form = useForm({
     full_name: "",
     email: "",
     phone: "",
@@ -11,14 +10,10 @@
     password: "",
     password_confirmation: ""
   });
-  let processing = $state(false);
 
   function submit(event) {
     event.preventDefault();
-    processing = true;
-    router.post("/register", form, {
-      onFinish: () => processing = false
-    });
+    form.post("/register");
   }
 </script>
 
@@ -34,21 +29,21 @@
           <label for="full_name" class="mb-2 block text-sm font-semibold text-[#263c2e]">Full name</label>
           <input id="full_name" bind:value={form.full_name} autocomplete="name" required
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
-          {#if errors.full_name}<p class="mt-2 text-sm text-red-700" role="alert">{errors.full_name}</p>{/if}
+          {#if form.errors.full_name}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.full_name}</p>{/if}
         </div>
 
         <div>
           <label for="email" class="mb-2 block text-sm font-semibold text-[#263c2e]">Email address</label>
           <input id="email" bind:value={form.email} type="email" autocomplete="email" required
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
-          {#if errors.email}<p class="mt-2 text-sm text-red-700" role="alert">{errors.email}</p>{/if}
+          {#if form.errors.email}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.email}</p>{/if}
         </div>
 
         <div>
           <label for="phone" class="mb-2 block text-sm font-semibold text-[#263c2e]">Phone number <span class="font-normal text-slate-500">(optional)</span></label>
           <input id="phone" bind:value={form.phone} type="tel" autocomplete="tel"
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
-          {#if errors.phone}<p class="mt-2 text-sm text-red-700" role="alert">{errors.phone}</p>{/if}
+          {#if form.errors.phone}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.phone}</p>{/if}
         </div>
 
         <fieldset>
@@ -61,7 +56,7 @@
               </label>
             {/each}
           </div>
-          {#if errors.role}<p class="mt-2 text-sm text-red-700">{errors.role}</p>{/if}
+          {#if form.errors.role}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.role}</p>{/if}
         </fieldset>
 
         <div>
@@ -69,7 +64,7 @@
           <input id="password" bind:value={form.password} type="password" autocomplete="new-password" required minlength="8"
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
           <p class="mt-2 text-xs text-slate-500">Use at least 8 characters.</p>
-          {#if errors.password}<p class="mt-2 text-sm text-red-700" role="alert">{errors.password}</p>{/if}
+          {#if form.errors.password}<p class="mt-2 text-sm text-red-700" role="alert">{form.errors.password}</p>{/if}
         </div>
 
         <div>
@@ -78,9 +73,9 @@
             class="w-full rounded-xl border border-[#dce7df] bg-white px-4 py-3.5 outline-none placeholder:text-slate-400" />
         </div>
 
-        <button type="submit" disabled={processing}
+        <button type="submit" disabled={form.processing}
           class="w-full rounded-xl bg-[#1b5d3a] px-5 py-3.5 font-bold text-white shadow-sm shadow-[#1b5d3a]/15 hover:-translate-y-0.5 hover:bg-[#12472d] disabled:cursor-wait disabled:opacity-60">
-          {processing ? "Creating account…" : "Create account"}
+          {form.processing ? "Creating account…" : "Create account"}
         </button>
       </form>
 
