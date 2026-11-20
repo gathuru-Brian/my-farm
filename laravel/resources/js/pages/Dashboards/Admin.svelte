@@ -1,11 +1,12 @@
 <script>
-  import { router } from "@inertiajs/svelte";
+  import { router, useForm } from "@inertiajs/svelte";
   import DashboardTabs from "../../components/DashboardTabs.svelte";
-  import DashboardWelcome from "../../components/DashboardWelcome.svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
 
-  let { auth, stats = {}, producers = [], customers = [], products = [], orders = [], flash } = $props();
+  let { auth, stats = {}, producers = [], customers = [], products = [], orders = [], contactMessages = [], salesByDay = [], topFarmsThisWeek = [], flash } = $props();
   let activeView = $state("overview");
+  let dashboardSearch = $state("");
+  let showSearchResults = $state(false);
   let productSearch = $state("");
   let producerSearch = $state("");
   let producerFilter = $state("all");
@@ -14,11 +15,15 @@
   let orderFilter = $state("all");
   let selected = $state(null); // { type: "producer" | "customer", id }
   let closeButton = $state(null);
+  let producerInviteForm = useForm({ full_name: "", email: "", phone: "" });
+  let resendingInvitations = $state({});
+  let reviewingContactMessages = $state({});
 
   const DAY = 86400000;
   const orderStatuses = ["pending", "confirmed", "processing", "ready", "shipped", "delivered", "cancelled"];
   const currency = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 2 });
   const compact = new Intl.NumberFormat("en-KE", { notation: "compact", maximumFractionDigits: 1 });
+  const compactCurrency = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", notation: "compact", maximumFractionDigits: 1 });
   const badge = {
     pending: "bg-amber-100 text-amber-800", confirmed: "bg-blue-100 text-blue-800", processing: "bg-indigo-100 text-indigo-800",
     ready: "bg-teal-100 text-teal-800", shipped: "bg-sky-100 text-sky-800", delivered: "bg-green-100 text-green-800",
@@ -31,15 +36,6 @@
   const avatarTones = ["bg-[#d8e9b8] text-[#173f2a]", "bg-blue-100 text-blue-800", "bg-amber-100 text-amber-800", "bg-teal-100 text-teal-800", "bg-indigo-100 text-indigo-800"];
   const tone = (i) => avatarTones[i % avatarTones.length];
 
-  const icons = {
-    leaf: "M12 21v-8m0 0c0-4 3-6 7-6 0 4-3 6-7 6zm0 0c0-3-2-5-6-5 0 3 2 5 6 5z",
-    clock: "M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z",
-    users: "M16 20v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM20 20v-1a4 4 0 00-3-3.9",
-    box: "M4 8l8-4 8 4v8l-8 4-8-4V8zm0 0l8 4m0 0l8-4m-8 4v8",
-    receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6",
-    coin: "M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v10M9.5 9.8c0-1 1-1.6 2.5-1.6s2.5.6 2.5 1.6-1 1.4-2.5 1.6-2.5.6-2.5 1.6 1 1.6 2.5 1.6 2.5-.6 2.5-1.6"
-  };
-
   const btnPrimary = "rounded-xl bg-[#176b3b] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#0b482b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b3b]";
   const btnDanger = "rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50";
   const btnWarn = "rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-50";
@@ -51,15 +47,34 @@
     `${product.name} ${product.category} ${product.farm_name ?? ""} ${product.producer_name ?? ""}`.toLowerCase().includes(productSearch.trim().toLowerCase())));
   let filteredProducers = $derived(producers.filter((producer) =>
     (producerFilter === "all" || producer.status === producerFilter) &&
-    `${producer.name} ${producer.email} ${producer.status}`.toLowerCase().includes(producerSearch.trim().toLowerCase())));
+    `${producer.name} ${producer.email} ${producer.status} ${(producer.farms ?? []).map((farm) => farm.name).join(" ")}`.toLowerCase().includes(producerSearch.trim().toLowerCase())));
 
   // Insights, all computed from props the page already receives
   let pendingProducers = $derived(producers.filter((p) => p.status === "pending"));
   let activeProducers = $derived(producers.filter((p) => p.status === "active").length);
   let suspendedProducers = $derived(producers.filter((p) => p.status === "suspended").length);
   let revenue = $derived(orders.filter((o) => o.status !== "cancelled").reduce((sum, o) => sum + Number(o.total_amount || 0), 0));
+  let salesTotal = $derived(Number(stats.sales_total ?? revenue));
+  let pendingPaymentsTotal = $derived(Number(stats.pending_payments_total ?? orders
+    .filter((order) => order.status !== "cancelled" && order.payment_status === "pending")
+    .reduce((sum, order) => sum + Number(order.total_amount || 0), 0)));
+  let pendingPayments = $derived(Number(stats.pending_payments ?? orders
+    .filter((order) => order.status !== "cancelled" && order.payment_status === "pending").length));
   let pendingOrders = $derived(orders.filter((o) => o.status === "pending").length);
-  let recentOrders = $derived(orders.slice(0, 5));
+  let unreadContactMessages = $derived(contactMessages.filter((message) => !message.reviewed_at).length);
+  let recentOrders = $derived(orders.slice(0, 4));
+  let topCategories = $derived.by(() => {
+    const counts = new Map();
+    for (const product of products) {
+      const category = product.category?.trim() || "Other";
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+
+    return [...counts].map(([category, count]) => ({ category, count }))
+      .sort((first, second) => second.count - first.count || first.category.localeCompare(second.category))
+      .slice(0, 5);
+  });
+  let maxCategoryCount = $derived(Math.max(1, ...topCategories.map((category) => category.count)));
   let lowStock = $derived(products.filter((p) => p.quantity_remaining > 0 && p.quantity_remaining <= 10).length);
   let outOfStock = $derived(products.filter((p) => p.quantity_remaining <= 0).length);
   let cancelledOrders = $derived(orders.filter((o) => o.status === "cancelled").length);
@@ -68,36 +83,55 @@
 
   // Time series: only drawn when orders carry a created_at date
   const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
-  let hasDates = $derived(orders.some((o) => o.created_at && !Number.isNaN(new Date(o.created_at).getTime())));
+  let hasDates = $derived(salesByDay.length > 0 || orders.some((o) => o.created_at && !Number.isNaN(new Date(o.created_at).getTime())));
   let series = $derived.by(() => {
     const today = startOfDay(new Date());
     const pts = Array.from({ length: range }, (_, i) => ({ t: today - (range - 1 - i) * DAY, revenue: 0, orders: 0 }));
-    for (const o of orders) {
-      if (!o.created_at) continue;
-      const p = pts.find((x) => x.t === startOfDay(o.created_at));
-      if (p) { p.orders += 1; if (o.status !== "cancelled") p.revenue += Number(o.total_amount || 0); }
+    if (salesByDay.length > 0) {
+      for (const day of salesByDay) {
+        const [year, month, date] = day.date.split("-").map(Number);
+        const point = pts.find((item) => item.t === new Date(year, month - 1, date).getTime());
+        if (point) {
+          point.orders = Number(day.orders);
+          point.revenue = Number(day.revenue);
+        }
+      }
+    } else {
+      for (const order of orders) {
+        if (!order.created_at) continue;
+        const point = pts.find((item) => item.t === startOfDay(order.created_at));
+        if (point) {
+          point.orders += 1;
+          if (order.status !== "cancelled") point.revenue += Number(order.total_amount || 0);
+        }
+      }
     }
     return pts;
   });
   let maxRev = $derived(Math.max(1, ...series.map((p) => p.revenue)));
-  const px = (i, n) => 60 + (n < 2 ? 0 : (i * 560) / (n - 1));
-  const py = (v, max) => 155 - (v / max) * 125;
-  let linePoints = $derived(series.map((p, i) => `${px(i, series.length)},${py(p.revenue, maxRev)}`).join(" "));
-  let areaPath = $derived(`M${px(0, series.length)},155 L${linePoints.replaceAll(" ", " L")} L${px(series.length - 1, series.length)},155 Z`);
-  let peakIndex = $derived(series.reduce((best, p, i) => (p.revenue > series[best].revenue ? i : best), 0));
   let labelStep = $derived(Math.ceil(range / 7));
   const dayLabel = (t) => new Intl.DateTimeFormat("en-KE", range === 7 ? { weekday: "short" } : { day: "numeric", month: "short" }).format(new Date(t));
-
-  function spark(values) {
-    const max = Math.max(1, ...values);
-    return values.map((v, i) => `${(i * 96) / Math.max(1, values.length - 1)},${28 - (v / max) * 24}`).join(" ");
-  }
-  let week = $derived(series.slice(-7));
 
   let filteredOrders = $derived(orders.filter((o) =>
     (orderFilter === "all" || o.status === orderFilter) &&
     `${o.id} ${o.customer_name ?? ""} ${o.customer_email ?? ""} ${(o.items ?? []).map((i) => `${i.name} ${i.farm_name ?? ""}`).join(" ")}`.toLowerCase().includes(orderSearch.trim().toLowerCase())));
-
+  let searchTerm = $derived(dashboardSearch.trim().toLowerCase());
+  let globalOrderMatches = $derived(searchTerm ? orders.filter((order) =>
+    `${order.id} ${order.customer_name ?? ""} ${order.customer_email ?? ""} ${(order.items ?? []).map((item) => `${item.name} ${item.farm_name ?? ""}`).join(" ")}`.toLowerCase().includes(searchTerm)).slice(0, 3) : []);
+  let globalProducerMatches = $derived(searchTerm ? producers.filter((producer) =>
+    `${producer.name} ${producer.email} ${(producer.farms ?? []).map((farm) => farm.name).join(" ")}`.toLowerCase().includes(searchTerm)).slice(0, 3) : []);
+  let globalProductMatches = $derived(searchTerm ? products.filter((product) =>
+    `${product.name} ${product.category ?? ""} ${product.farm_name ?? ""} ${product.producer_name ?? ""}`.toLowerCase().includes(searchTerm)).slice(0, 3) : []);
+  let sectionTitle = $derived({
+    overview: "Marketplace overview",
+    producers: "Producer management",
+    "add-producer": "Invite a producer",
+    customers: "Customers",
+    orders: "Orders",
+    "contact-inbox": "Contact inbox",
+    products: "Product listings",
+    activity: "Platform activity",
+  }[activeView] ?? "Marketplace overview");
   // Support activity feed, built from whatever dated records the page receives
   let activity = $derived.by(() => {
     const items = [];
@@ -117,21 +151,21 @@
   }
 
   let tabs = $derived([
-    { view: "overview", label: "Overview" },
-    { view: "producers", label: "Producers", badge: (stats.producers_pending ?? 0) > 0 ? stats.producers_pending : null },
-    { view: "customers", label: "Customers" },
-    { view: "orders", label: "Orders", count: orders.length },
-    { view: "products", label: "Products" },
-    { view: "activity", label: "Activity" }
+    { view: "overview", label: "Overview", icon: "⌂" },
+    { view: "producers", label: "Producers", icon: "♙", badge: (stats.producers_pending ?? 0) > 0 ? stats.producers_pending : null },
+    { view: "add-producer", label: "Add Producer", icon: "+" },
+    { view: "customers", label: "Customers", icon: "♧" },
+    { view: "orders", label: "Orders", icon: "▤", count: orders.length },
+    { view: "contact-inbox", label: "Contact inbox", icon: "✉", badge: unreadContactMessages || null },
+    { view: "products", label: "Products", icon: "▦" },
+    { view: "activity", label: "Activity", icon: "◷" }
   ]);
 
   let statCards = $derived([
-    { label: "Producers", value: stats.producers_total ?? 0, sub: "Registered on the platform", icon: icons.leaf, tile: "bg-[#e7f3df]", stroke: "#176b3b", chip: `${activeProducers} active`, chipTone: "bg-green-100 text-green-800", view: "producers" },
-    { label: "Awaiting approval", value: stats.producers_pending ?? 0, sub: "Review applications", icon: icons.clock, tile: "bg-amber-100", stroke: "#b45309", chip: (stats.producers_pending ?? 0) > 0 ? "Action needed" : null, chipTone: "bg-amber-100 text-amber-800", alert: (stats.producers_pending ?? 0) > 0, view: "producers" },
-    { label: "Customers", value: stats.customers ?? 0, sub: "Registered buyers", icon: icons.users, tile: "bg-blue-100", stroke: "#1d4ed8", view: "customers" },
-    { label: "Live listings", value: stats.products_available ?? 0, sub: `of ${stats.products ?? 0} products`, icon: icons.box, tile: "bg-indigo-100", stroke: "#4338ca", view: "products" },
-    { label: "Orders", value: stats.orders ?? 0, sub: pendingOrders > 0 ? `${pendingOrders} need action` : "All handled", icon: icons.receipt, tile: "bg-teal-100", stroke: "#0f766e", spark: hasDates ? spark(week.map((p) => p.orders)) : null, sparkColor: "#14b8a6", view: "orders" },
-    { label: "Revenue", value: currency.format(revenue), sub: "excluding cancelled", icon: icons.coin, tile: "bg-amber-100", stroke: "#a16207", spark: hasDates ? spark(week.map((p) => p.revenue)) : null, sparkColor: "#d4a017", view: "orders" }
+    { label: "Total sales", value: currency.format(salesTotal), sub: "Order value, excluding cancellations", view: "orders" },
+    { label: "Orders", value: compact.format(stats.orders ?? orders.length), sub: pendingOrders > 0 ? `${pendingOrders} awaiting fulfilment` : "Marketplace orders", view: "orders" },
+    { label: "Active producers", value: compact.format(activeProducers), sub: `${stats.producers_pending ?? 0} pending approval`, view: "producers" },
+    { label: "Pending payments", value: currency.format(pendingPaymentsTotal), sub: `${pendingPayments} order${pendingPayments === 1 ? "" : "s"} to review`, alert: pendingPayments > 0, view: "orders" }
   ]);
 
   // Detail panel: everything the page knows about one producer or customer
@@ -170,202 +204,332 @@
       .map(([, v]) => String(v)).join(" · ");
   }
   const fullDate = (v) => (v && !Number.isNaN(new Date(v).getTime()) ? new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(v)) : "—");
+  function markContactMessageReviewed(message) {
+    if (reviewingContactMessages[message.id]) return;
+    reviewingContactMessages[message.id] = true;
+    router.put(`/dashboard/admin/contact-messages/${message.id}/review`, {}, {
+      preserveScroll: true,
+      onFinish: () => { delete reviewingContactMessages[message.id]; },
+    });
+  }
   const openDetail = (type, id) => { selected = { type, id }; };
   const closeDetail = () => { selected = null; };
+  function farmNameFor(order) {
+    const farms = [...new Set((order.items ?? []).map((item) => item.farm_name).filter(Boolean))];
+    if (farms.length > 1) return `${farms[0]} + ${farms.length - 1} more`;
+    return farms[0] ?? "—";
+  }
+
+  function chooseSearchResult(type, item) {
+    if (type === "order") {
+      orderSearch = String(item.id);
+      activeView = "orders";
+    } else if (type === "producer") {
+      producerSearch = item.name;
+      producerFilter = "all";
+      activeView = "producers";
+    } else {
+      productSearch = item.name;
+      activeView = "products";
+    }
+
+    dashboardSearch = "";
+    showSearchResults = false;
+  }
 
   $effect(() => { if (detailOpen) closeButton?.focus(); });
 
   function setProducerStatus(producer, status) {
     router.put(`/dashboard/admin/producers/${producer.id}/status`, { status }, { preserveScroll: true });
   }
+
+  function inviteProducer(event) {
+    event.preventDefault();
+    producerInviteForm.post("/dashboard/admin/producers", {
+      preserveScroll: true,
+      onSuccess: () => producerInviteForm.resetAndClearErrors(),
+    });
+  }
+
+  function resendProducerInvitation(producer) {
+    resendingInvitations[producer.id] = true;
+    router.post(`/dashboard/admin/producers/${producer.id}/invitation`, {}, {
+      preserveScroll: true,
+      onFinish: () => { delete resendingInvitations[producer.id]; },
+    });
+  }
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === "Escape" && detailOpen) closeDetail(); }} />
+<svelte:window onkeydown={(event) => {
+  if (event.key === "Escape" && detailOpen) closeDetail();
+  if (event.key === "Escape") showSearchResults = false;
+}} />
 
 <PortalLayout title="Admin dashboard" user={auth.user}>
-  <section class="dashboard-shell mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-    <DashboardWelcome eyebrow="Administration · support" title={auth.user.full_name ? `Welcome back, ${auth.user.full_name}` : "Welcome back"} description="Approve producer accounts and keep an eye on everything happening across Modern Farms.">
-      {#snippet children()}
-        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center xl:justify-end">
-          {#if (stats.producers_pending ?? 0) > 0}
-            <button type="button" onclick={() => (activeView = "producers")} class="rounded-2xl border border-amber-200/30 bg-amber-300 px-5 py-3.5 text-left text-sm font-extrabold text-amber-950 shadow-lg transition hover:bg-amber-200">
-              <span class="block text-xs font-bold uppercase tracking-wide text-amber-900/70">Action needed</span>
-              <span class="mt-1 block">{stats.producers_pending} producer{stats.producers_pending === 1 ? "" : "s"} awaiting approval <span aria-hidden="true">→</span></span>
-            </button>
-          {:else}
-            <p class="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.09] px-4 py-3 text-sm font-semibold text-green-50">
-              <span class="grid size-9 place-items-center rounded-xl bg-[#c6df9e]/15 text-[#c6df9e]" aria-hidden="true">✓</span>
-              <span><span class="block text-xs font-bold uppercase tracking-wide text-green-50/65">Moderation queue</span><span class="mt-0.5 block">You're all caught up</span></span>
-            </p>
+  <div class="min-h-full bg-[#f6f8f3]">
+  <section class="dashboard-shell mx-auto max-w-[1500px] px-4 py-5 sm:px-5 lg:grid lg:grid-cols-[190px_minmax(0,1fr)] lg:items-start lg:gap-x-5 lg:px-8 lg:py-7" data-dashboard-role="admin">
+    <header class="flex flex-col justify-between gap-4 md:flex-row md:items-center lg:col-start-2 lg:row-start-1">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-extrabold tracking-tight text-[#25352d] sm:text-[1.75rem]">{sectionTitle}</h1>
+        <p class="mt-1 text-sm text-slate-600">{activeView === "overview" ? "Your farm-to-customer marketplace, at a glance." : "Manage your marketplace from one place."}</p>
+      </div>
+      <div class="flex min-w-0 flex-wrap items-center gap-2">
+        <div class="relative min-w-[220px] flex-1 md:flex-none">
+          <label class="sr-only" for="admin-dashboard-search">Search orders, producers, and products</label>
+          <input
+            id="admin-dashboard-search"
+            bind:value={dashboardSearch}
+            type="search"
+            role="combobox"
+            placeholder="Search orders, producers, products"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-controls="admin-search-results"
+            aria-expanded={showSearchResults && Boolean(searchTerm)}
+            class={`${searchBox} h-10 pr-10 md:w-64 xl:w-72`}
+            onfocus={() => (showSearchResults = true)}
+            oninput={() => (showSearchResults = true)}
+          />
+          <svg class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          {#if showSearchResults && searchTerm}
+            <div id="admin-search-results" class="absolute right-0 top-full z-30 mt-2 max-h-[min(70vh,28rem)] w-full min-w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-[#e1e9de] bg-white p-2 shadow-xl" role="listbox" aria-label="Search results">
+              {#if globalOrderMatches.length + globalProducerMatches.length + globalProductMatches.length === 0}
+                <p class="px-3 py-4 text-sm text-slate-500">No matching orders, producers, or products.</p>
+              {:else}
+                {#if globalOrderMatches.length}
+                  <p class="px-3 pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Orders</p>
+                  {#each globalOrderMatches as order (order.id)}
+                    <button type="button" role="option" aria-selected="false" class="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-[#f3f7f1]" onclick={() => chooseSearchResult("order", order)}>
+                      <span class="truncate text-sm font-semibold text-[#33483a]">Order #{order.id} · {order.customer_name ?? "Customer"}</span><span class="shrink-0 text-xs text-slate-500">{currency.format(order.total_amount)}</span>
+                    </button>
+                  {/each}
+                {/if}
+                {#if globalProducerMatches.length}
+                  <p class="px-3 pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Producers</p>
+                  {#each globalProducerMatches as producer (producer.id)}
+                    <button type="button" role="option" aria-selected="false" class="w-full truncate rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#33483a] transition hover:bg-[#f3f7f1]" onclick={() => chooseSearchResult("producer", producer)}>{producer.name} <span class="font-normal text-slate-500">· {producer.farms?.[0]?.name ?? producer.email}</span></button>
+                  {/each}
+                {/if}
+                {#if globalProductMatches.length}
+                  <p class="px-3 pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Products</p>
+                  {#each globalProductMatches as product (product.id)}
+                    <button type="button" role="option" aria-selected="false" class="w-full truncate rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#33483a] transition hover:bg-[#f3f7f1]" onclick={() => chooseSearchResult("product", product)}>{product.name} <span class="font-normal text-slate-500">· {product.farm_name ?? product.category}</span></button>
+                  {/each}
+                {/if}
+              {/if}
+            </div>
           {/if}
-          <a href="/" class="rounded-2xl border border-white/20 bg-white/[0.07] px-4 py-3.5 text-center text-sm font-semibold text-white transition hover:bg-white/[0.14]">View marketplace</a>
         </div>
-      {/snippet}
-    </DashboardWelcome>
+        <button type="button" class="rounded-xl bg-[#334155] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#1e293b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#64748b]" onclick={() => (activeView = "producers")}>Manage producers</button>
+      </div>
+    </header>
 
-    <div class="mt-5">
-      <DashboardTabs tabs={tabs} activeView={activeView} onSelect={(view) => (activeView = view)} label="Admin dashboard sections" />
-    </div>
+    <div class="mt-4 grid items-start gap-5 lg:contents xl:gap-6">
+      <DashboardTabs
+        tabs={tabs}
+        activeView={activeView}
+        onSelect={(view) => (activeView = view)}
+        label="Admin dashboard sections"
+        heading="Admin workspace"
+        description="Monitor and manage the marketplace"
+        accent="admin"
+        gridClass="lg:col-start-1 lg:row-start-1 lg:row-span-2"
+      />
+      <div class="min-w-0 lg:col-start-2 lg:row-start-2">
 
     {#if flash?.status}
       <p class="mt-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-3.5 text-sm font-medium text-green-900" role="status"><span aria-hidden="true">✓</span> {flash.status}</p>
     {/if}
+    {#if flash?.warning}
+      <p class="mt-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3.5 text-sm font-medium leading-6 text-amber-950" role="alert"><span aria-hidden="true">!</span> {flash.warning}</p>
+    {/if}
 
     {#if activeView === "overview"}
-      <!-- Stat cards -->
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {#each statCards as s}
-          <button type="button" onclick={() => (activeView = s.view)} class={`${card} relative p-6 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl ${s.alert ? "ring-2 ring-amber-300" : ""}`}>
-            <div class="flex items-start justify-between">
-              <span class={`grid size-11 place-items-center rounded-xl ${s.tile}`}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s.stroke} stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={s.icon} /></svg>
-              </span>
-              {#if s.chip}<span class={`rounded-full px-3 py-1 text-xs font-bold ${s.chipTone}`}>{s.chip}</span>{/if}
-            </div>
-            <p class="mt-4 text-sm font-semibold text-slate-600">{s.label}</p>
-            <p class="mt-0.5 text-3xl font-extrabold tracking-tight text-[#173f2a]">{s.value}</p>
-            <p class="mt-0.5 text-sm text-slate-500">{s.sub}</p>
-            {#if s.spark}
-              <svg class="absolute bottom-5 right-5" width="96" height="32" viewBox="0 0 96 32" aria-hidden="true"><polyline points={s.spark} fill="none" stroke={s.sparkColor} stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
-            {/if}
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {#each statCards as s (s.label)}
+          <button type="button" onclick={() => (activeView = s.view)} class={`${card} min-w-0 p-5 text-left transition hover:-translate-y-0.5 hover:border-[#cbdcc9] hover:shadow-lg ${s.alert ? "ring-2 ring-amber-300" : ""}`}>
+            <span class="text-sm font-medium text-slate-500">{s.label}</span>
+            <span class="mt-1 block truncate text-2xl font-extrabold tracking-tight text-[#1d3026] sm:text-[1.75rem]">{s.value}</span>
+            <span class={`mt-1 block text-xs font-semibold ${s.alert ? "text-amber-700" : "text-[#43815d]"}`}>{s.sub}</span>
           </button>
         {/each}
       </div>
 
-      <div class="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <div class="space-y-6">
-          {#if hasDates}
-            <!-- Revenue chart -->
-            <article class={`${card} p-6`}>
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div><h2 class="text-lg font-bold">Revenue</h2><p class="mt-1 text-sm text-slate-500">Daily revenue, excluding cancelled orders.</p></div>
-                <div class="flex gap-1.5" role="group" aria-label="Chart range">
-                  {#each [7, 30, 90] as r}
-                    <button type="button" aria-pressed={range === r} onclick={() => (range = r)} class={`rounded-full px-3 py-1 text-xs font-bold transition ${range === r ? "bg-[#176b3b] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{r}D</button>
-                  {/each}
-                </div>
-              </div>
-              <svg viewBox="0 0 640 190" class="mt-4 block w-full" role="img" aria-label={`Revenue over the last ${range} days`}>
-                <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f9e5f" stop-opacity=".35" /><stop offset="1" stop-color="#2f9e5f" stop-opacity="0" /></linearGradient></defs>
-                {#each [0, 1, 2, 3] as g}
-                  <line x1="40" x2="640" y1={30 + g * 41.7} y2={30 + g * 41.7} stroke="#e8eee8" />
-                  <text x="0" y={34 + g * 41.7} font-size="11" fill="#64748b">{compact.format(maxRev * (1 - g / 3))}</text>
-                {/each}
-                <path d={areaPath} fill="url(#rev)" />
-                <polyline points={linePoints} fill="none" stroke="#176b3b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                {#if series[peakIndex].revenue > 0}
-                  <circle cx={px(peakIndex, series.length)} cy={py(series[peakIndex].revenue, maxRev)} r="6" fill="#fff" stroke="#176b3b" stroke-width="3" />
-                  <rect x={Math.min(Math.max(px(peakIndex, series.length) - 52, 40), 536)} y={Math.max(py(series[peakIndex].revenue, maxRev) - 38, 0)} width="104" height="26" rx="8" fill="#173f2a" />
-                  <text x={Math.min(Math.max(px(peakIndex, series.length), 92), 588)} y={Math.max(py(series[peakIndex].revenue, maxRev) - 21, 17)} font-size="12" font-weight="700" fill="#fff" text-anchor="middle">{currency.format(series[peakIndex].revenue).replace(".00", "")}</text>
-                {/if}
-                {#each series as p, i}
-                  {#if i % labelStep === 0}<text x={px(i, series.length)} y="180" font-size="11" fill="#64748b" text-anchor="middle">{dayLabel(p.t)}</text>{/if}
-                {/each}
-              </svg>
-            </article>
-          {/if}
-
-          <!-- Recent orders -->
-          <article class={`${card} p-6`}>
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div><h2 class="text-lg font-bold">Recent orders</h2><p class="mt-1 text-sm text-slate-500">The latest activity on the marketplace.</p></div>
-              <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "orders")}>View all orders →</button>
+      <div class="mt-5 grid items-stretch gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
+        <article class={`${card} min-w-0 p-5 sm:p-6`}>
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div><h3 class="text-base font-extrabold text-[#263b30]">Sales by day</h3><p class="mt-1 text-xs text-slate-500">Order value, excluding cancelled orders.</p></div>
+            <div class="flex gap-1 rounded-xl bg-[#f1f5ef] p-1" role="group" aria-label="Sales chart range">
+              {#each [7, 30, 90] as days}
+                <button type="button" aria-pressed={range === days} onclick={() => (range = days)} class={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${range === days ? "bg-white text-[#174b32] shadow-sm" : "text-slate-500 hover:text-[#174b32]"}`}>{days}D</button>
+              {/each}
             </div>
-            {#if recentOrders.length === 0}
-              <p class="mt-6 rounded-xl bg-[#f4f8f5] p-6 text-center text-sm text-slate-600">No orders have been placed yet.</p>
-            {:else}
-              <div class="mt-4 overflow-x-auto">
-                <table class="w-full min-w-[480px] text-left text-sm">
-                  <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="py-2 pr-4 font-semibold">Order</th><th class="py-2 pr-4 font-semibold">Customer</th><th class="py-2 pr-4 font-semibold">Total</th><th class="py-2 font-semibold">Status</th></tr></thead>
-                  <tbody class="divide-y divide-slate-100">
-                    {#each recentOrders as order, i (order.id)}
-                      <tr class="transition hover:bg-[#fafcf9]">
-                        <td class="py-3.5 pr-4 font-bold">#{order.id}</td>
-                        <td class="py-3.5 pr-4"><span class="flex items-center gap-2.5"><span class={`grid size-8 place-items-center rounded-full text-xs font-bold ${tone(i)}`} aria-hidden="true">{(order.customer_name ?? "C")[0]}</span>{order.customer_name ?? "Customer"}</span></td>
-                        <td class="py-3.5 pr-4 font-semibold">{currency.format(order.total_amount)}</td>
-                        <td class="py-3.5"><span class={`rounded-full px-3 py-1 text-xs font-bold capitalize ${badgeClass(order.status)}`}>{order.status}</span></td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
-          </article>
-
-          <!-- Orders by status -->
-          <article class={`${card} p-6`}>
-            <h2 class="text-lg font-bold">Orders by status</h2>
-            <p class="mt-1 text-sm text-slate-500">Where every order sits in the fulfilment pipeline.</p>
-            <ul class="mt-5 space-y-3">
-              {#each statusCounts as s}
-                <li class="flex items-center gap-4">
-                  <span class="w-24 text-sm font-medium capitalize text-slate-600">{s.status}</span>
-                  <span class="h-3 flex-1 overflow-hidden rounded-full bg-slate-100"><span class={`block h-full rounded-full ${bar[s.status]}`} style={`width: ${(s.count / maxCount) * 100}%`}></span></span>
-                  <span class="w-8 text-right text-sm font-bold">{s.count}</span>
-                </li>
-              {/each}
-            </ul>
-          </article>
-        </div>
-
-        <div class="space-y-6">
-          <!-- Recent activity -->
-          <article class={`${card} p-6`}>
-            <div class="flex items-center justify-between"><h2 class="text-lg font-bold">Recent activity</h2><button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "activity")}>See all →</button></div>
-            <ul class="mt-4 space-y-4">
-              {#each activity.slice(0, 6) as a}
-                <li class="flex gap-3"><span class={`mt-1.5 size-2.5 shrink-0 rounded-full ${dot[a.kind]}`}></span><div class="min-w-0"><p class="text-sm font-semibold">{a.title}</p><p class="text-xs text-slate-500">{a.detail} · {timeAgo(a.at)}</p></div></li>
-              {:else}
-                <li class="rounded-xl bg-[#f4f8f5] p-5 text-center text-sm text-slate-500">Activity appears here as orders and sign-ups come in.</li>
-              {/each}
-            </ul>
-          </article>
-
-          <!-- Needs attention -->
-          <article class={`${card} p-6`}>
-            <h2 class="text-lg font-bold">Needs attention</h2>
-            <ul class="mt-4 space-y-3">
-              {#each [["Pending producers", pendingProducers.length, "amber"], ["Low stock (10 or fewer)", lowStock, "amber"], ["Out of stock", outOfStock, "red"], ["Cancelled orders", cancelledOrders, "red"]] as [label, n, level]}
-                <li class="flex items-center justify-between rounded-xl bg-[#f4f8f5] px-4 py-3">
-                  <span class="text-sm font-medium">{label}</span>
-                  <span class={`rounded-full px-3 py-1 text-xs font-bold ${n === 0 ? "bg-green-100 text-green-800" : level === "red" ? "bg-red-100 text-red-700" : "bg-amber-200 text-amber-900"}`}>{n}</span>
-                </li>
-              {/each}
-            </ul>
-          </article>
-
-          <!-- Producer applications -->
-          <article class={`${card} p-6`}>
-            <h2 class="text-lg font-bold">Producer applications</h2>
-            <p class="mt-1 text-sm text-slate-500">Approve eligible producers to make their farms and products available.</p>
-            {#if stats.producers_pending === 0}
-              <div class="mt-5 rounded-xl bg-[#f4f8f5] p-6 text-center">
-                <span class="mx-auto grid size-12 place-items-center rounded-full bg-green-100 text-xl text-green-700" aria-hidden="true">✓</span>
-                <p class="mt-3 font-semibold">You're all caught up</p>
-                <p class="mt-1 text-sm text-slate-500">There are no pending producer applications.</p>
-              </div>
-            {:else}
-              <ul class="mt-4 divide-y divide-slate-100">
-                {#each pendingProducers.slice(0, 5) as producer, i (producer.id)}
-                  <li class="flex flex-wrap items-center justify-between gap-3 py-3.5">
-                    <div class="flex items-center gap-3">
-                      <span class={`grid size-10 place-items-center rounded-full font-bold ${tone(i)}`} aria-hidden="true">{producer.name?.[0] ?? "?"}</span>
-                      <button type="button" class="text-left" onclick={() => openDetail("producer", producer.id)}><span class="block font-semibold transition hover:text-[#176b3b] hover:underline">{producer.name}</span><span class="block text-sm text-slate-500">{producer.email} · {producer.farms.length} farms</span></button>
+          </div>
+          {#if hasDates}
+            <div class="mt-5 overflow-x-auto pb-1">
+              <div class="grid h-48 items-end gap-1.5 border-b border-[#e8eee8] px-1 sm:gap-2" style={`grid-template-columns: repeat(${series.length}, minmax(0, 1fr)); min-width: ${Math.max(250, series.length * 28)}px`} role="img" aria-label={`Daily sales for the last ${range} days`}>
+                {#each series as point, index (point.t)}
+                  <div class="flex h-full min-w-0 flex-col items-center justify-end gap-2">
+                    <div class="flex min-h-0 w-full flex-1 items-end">
+                      <span class={`relative block w-full rounded-t-md transition-all ${point.revenue > 0 && point.revenue === maxRev ? "bg-[#df8b2c]" : "bg-[#34765b]"}`} style={`height: ${point.revenue > 0 ? Math.max(5, (point.revenue / maxRev) * 100) : 0}%`} title={`${dayLabel(point.t)}: ${currency.format(point.revenue)}`}>
+                        {#if point.revenue > 0 && point.revenue === maxRev}
+                          <span class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold text-[#9a5d19]">{compactCurrency.format(point.revenue)}</span>
+                        {/if}
+                      </span>
                     </div>
-                    <button type="button" class={btnPrimary} onclick={() => setProducerStatus(producer, "approved")}>Approve</button>
+                    {#if index % labelStep === 0}
+                      <span class="truncate text-[10px] text-slate-500 sm:text-xs">{dayLabel(point.t)}</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else}
+            <div class="mt-5 grid h-48 place-items-center rounded-xl bg-[#f6f8f3] text-sm text-slate-500">Sales activity will appear here when orders arrive.</div>
+          {/if}
+        </article>
+
+        <article class={`${card} p-5 sm:p-6`}>
+          <h3 class="text-base font-extrabold text-[#263b30]">Top categories</h3>
+          <p class="mt-1 text-xs text-slate-500">Product listings by category.</p>
+          {#if topCategories.length}
+            <ul class="mt-5 space-y-4">
+              {#each topCategories as category (category.category)}
+                <li>
+                  <div class="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                    <span class="truncate font-medium text-[#3d5045]">{category.category}</span>
+                    <span class="shrink-0 text-xs font-semibold text-slate-500">{category.count}</span>
+                  </div>
+                  <div class="h-2 overflow-hidden rounded-full bg-[#ece7d7]">
+                    <div class="h-full rounded-full bg-[#34765b]" style={`width: ${(category.count / maxCategoryCount) * 100}%`}></div>
+                  </div>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <div class="mt-5 rounded-xl bg-[#f6f8f3] p-5 text-sm text-slate-500">Categories will appear when products are listed.</div>
+          {/if}
+        </article>
+      </div>
+
+      <article class={`${card} mt-5 overflow-hidden`}>
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-6">
+          <div><h3 class="text-base font-extrabold text-[#263b30]">Recent orders</h3><p class="mt-1 text-xs text-slate-500">The latest activity across the marketplace.</p></div>
+          <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "orders")}>View all orders <span aria-hidden="true">→</span></button>
+        </div>
+        {#if recentOrders.length}
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full min-w-[680px] text-left text-sm">
+              <thead class="border-b border-[#eee9dc] text-xs text-slate-500">
+                <tr><th class="px-5 py-3 font-semibold sm:px-6">Order</th><th class="px-4 py-3 font-semibold">Buyer</th><th class="px-4 py-3 font-semibold">Farm</th><th class="px-4 py-3 font-semibold">Total</th><th class="px-4 py-3 font-semibold">Status</th></tr>
+              </thead>
+              <tbody class="divide-y divide-[#eee9dc]">
+                {#each recentOrders as order (order.id)}
+                  <tr class="transition hover:bg-[#fafcf9]">
+                    <td class="px-5 py-3.5 font-bold text-[#34483c] sm:px-6">#{order.id}</td>
+                    <td class="px-4 py-3.5 text-[#405247]">{order.customer_name ?? "Customer"}</td>
+                    <td class="px-4 py-3.5 text-[#58675e]">{farmNameFor(order)}</td>
+                    <td class="px-4 py-3.5 font-semibold text-[#34483c]">{currency.format(order.total_amount)}</td>
+                    <td class="px-4 py-3.5"><span class={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${badgeClass(order.status)}`}>{order.status}</span></td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else}
+          <p class="m-5 rounded-xl bg-[#f6f8f3] p-6 text-center text-sm text-slate-600">No orders have been placed yet.</p>
+        {/if}
+      </article>
+
+      <article class={`${card} mt-5 p-5 sm:p-6`}>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div><h3 class="text-base font-extrabold text-[#263b30]">Top farms this week</h3><p class="mt-1 text-xs text-slate-500">Ranked by non-cancelled order value over the last 7 days.</p></div>
+          <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "producers")}>View producers <span aria-hidden="true">→</span></button>
+        </div>
+        {#if topFarmsThisWeek.length}
+          <ul class="mt-4 grid gap-3 md:grid-cols-3">
+            {#each topFarmsThisWeek as farm, index (farm.id)}
+              <li class="flex min-w-0 items-center gap-3 rounded-xl bg-[#f7f9f5] p-3.5">
+                <span class={`grid size-10 shrink-0 place-items-center rounded-full text-xs font-extrabold ${tone(index)}`} aria-hidden="true">{farm.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</span>
+                <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold text-[#34483c]">{farm.name}</span><span class="mt-0.5 block text-xs text-slate-500">{currency.format(farm.sales)} in sales</span></span>
+                <span class="text-xs font-extrabold text-[#a16207]">#{index + 1}</span>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="mt-4 rounded-xl bg-[#f7f9f5] p-5 text-sm text-slate-500">Farm rankings will appear after orders are placed this week.</p>
+        {/if}
+      </article>
+
+      <div class="mt-5 grid gap-5 lg:grid-cols-2">
+        <article class={`${card} p-5 sm:p-6`}>
+          <div class="flex items-center justify-between"><h3 class="text-base font-extrabold text-[#263b30]">Recent activity</h3><button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "activity")}>See all <span aria-hidden="true">→</span></button></div>
+          <ul class="mt-4 space-y-4">
+            {#each activity.slice(0, 5) as item}
+              <li class="flex gap-3"><span class={`mt-1.5 size-2.5 shrink-0 rounded-full ${dot[item.kind]}`}></span><div class="min-w-0"><p class="text-sm font-semibold">{item.title}</p><p class="text-xs text-slate-500">{item.detail} · {timeAgo(item.at)}</p></div></li>
+            {:else}
+              <li class="rounded-xl bg-[#f4f8f5] p-5 text-center text-sm text-slate-500">Activity appears here as orders and sign-ups come in.</li>
+            {/each}
+          </ul>
+        </article>
+
+        <article class={`${card} p-5 sm:p-6`}>
+          <h3 class="text-base font-extrabold text-[#263b30]">Needs attention</h3>
+          <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+            {#each [["Pending producers", pendingProducers.length, "amber"], ["Low stock (10 or fewer)", lowStock, "amber"], ["Out of stock", outOfStock, "red"], ["Cancelled orders", cancelledOrders, "red"]] as [label, count, level]}
+              <li class="flex items-center justify-between gap-2 rounded-xl bg-[#f6f8f3] px-3.5 py-3">
+                <span class="text-sm font-medium">{label}</span>
+                <span class={`rounded-full px-2.5 py-1 text-xs font-bold ${count === 0 ? "bg-green-100 text-green-800" : level === "red" ? "bg-red-100 text-red-700" : "bg-amber-200 text-amber-900"}`}>{count}</span>
+              </li>
+            {/each}
+          </ul>
+          <div class="mt-5 border-t border-slate-100 pt-4">
+            <div class="flex items-center justify-between gap-3">
+              <div><h4 class="text-sm font-bold text-[#34483c]">Producer applications</h4><p class="mt-1 text-xs text-slate-500">{pendingProducers.length} awaiting review</p></div>
+              <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "producers")}>Review <span aria-hidden="true">→</span></button>
+            </div>
+            {#if pendingProducers.length}
+              <ul class="mt-2 divide-y divide-slate-100">
+                {#each pendingProducers.slice(0, 3) as producer, index (producer.id)}
+                  <li class="flex items-center justify-between gap-3 py-2.5">
+                    <button type="button" class="flex min-w-0 items-center gap-2.5 text-left" onclick={() => openDetail("producer", producer.id)}>
+                      <span class={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${tone(index)}`} aria-hidden="true">{producer.name?.[0] ?? "?"}</span>
+                      <span class="truncate text-sm font-semibold">{producer.name}</span>
+                    </button>
+                    <button type="button" class={`${btnPrimary} shrink-0 px-3 py-1.5 text-xs`} onclick={() => setProducerStatus(producer, "approved")}>Approve</button>
                   </li>
                 {/each}
               </ul>
-              <button type="button" class="mt-3 text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "producers")}>Manage producers →</button>
+            {:else}
+              <p class="mt-3 text-sm text-slate-500">You're all caught up.</p>
             {/if}
-          </article>
-        </div>
+          </div>
+        </article>
       </div>
+
+      <article class={`${card} mt-5 p-5 sm:p-6`}>
+        <h3 class="text-base font-extrabold text-[#263b30]">Orders by status</h3>
+        <p class="mt-1 text-xs text-slate-500">Orders by fulfilment stage.</p>
+        <ul class="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
+          {#each statusCounts as status}
+            <li class="flex items-center gap-3">
+              <span class="w-24 text-sm font-medium capitalize text-slate-600">{status.status}</span>
+              <span class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><span class={`block h-full rounded-full ${bar[status.status]}`} style={`width: ${(status.count / maxCount) * 100}%`}></span></span>
+              <span class="w-7 text-right text-xs font-bold">{status.count}</span>
+            </li>
+          {/each}
+        </ul>
+      </article>
+
     {:else if activeView === "producers"}
       <section class="mt-8">
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div><h2 class="text-2xl font-bold tracking-tight">Producer accounts</h2><p class="mt-1 text-sm text-slate-500">Approve, reject, or suspend marketplace access.</p></div>
-          <input bind:value={producerSearch} type="search" placeholder="Search producers" aria-label="Search producers" class={`${searchBox} sm:max-w-xs`} />
+          <div class="flex flex-wrap gap-2">
+            <input bind:value={producerSearch} type="search" placeholder="Search producers" aria-label="Search producers" class={`${searchBox} sm:max-w-xs`} />
+            <button type="button" class={btnPrimary} onclick={() => (activeView = "add-producer")}>Add producer</button>
+          </div>
         </div>
 
         <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -395,6 +559,9 @@
                 <div class="flex flex-wrap items-center gap-2">
                   <span class={`rounded-full px-3 py-1 text-sm font-bold capitalize ${badgeClass(producer.status)}`}>{producer.status}</span>
                   <button type="button" class="rounded-xl border border-[#d6e0d8] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-[#f1f6ef]" onclick={() => openDetail("producer", producer.id)}>View details</button>
+                  {#if producer.status === "pending"}
+                    <button type="button" class="rounded-xl border border-[#d6e0d8] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-[#f1f6ef] disabled:cursor-wait disabled:opacity-60" disabled={resendingInvitations[producer.id]} onclick={() => resendProducerInvitation(producer)}>{resendingInvitations[producer.id] ? "Sending…" : "Resend invitation"}</button>
+                  {/if}
                   {#if producer.status !== "active"}<button type="button" class={btnPrimary} onclick={() => setProducerStatus(producer, "approved")}>Approve</button>{/if}
                   {#if producer.status === "pending"}
                     <button type="button" class={btnDanger} onclick={() => setProducerStatus(producer, "rejected")}>Reject</button>
@@ -413,6 +580,40 @@
             <div class="rounded-2xl border border-dashed border-[#cbd9ce] bg-white p-12 text-center text-slate-600">No matching producer accounts.</div>
           {/each}
         </div>
+      </section>
+    {:else if activeView === "add-producer"}
+      <section class="mt-8">
+        <div class="max-w-3xl">
+          <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Producer onboarding</p>
+          <h2 class="mt-1 text-2xl font-bold tracking-tight">Invite a producer</h2>
+          <p class="mt-2 text-sm leading-6 text-slate-600">We’ll email a secure password-setup link. Their account will remain pending until an administrator approves it.</p>
+        </div>
+
+        <form onsubmit={inviteProducer} class={`${card} mt-5 max-w-3xl space-y-5 p-5 sm:p-7`}>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label for="producer-full-name" class="block text-sm font-semibold text-[#263b30]">Full name</label>
+              <input id="producer-full-name" bind:value={producerInviteForm.full_name} type="text" autocomplete="name" maxlength="120" required class={`${searchBox} mt-1.5`} />
+              {#if producerInviteForm.errors.full_name}<p class="mt-1.5 text-sm text-red-700" role="alert">{producerInviteForm.errors.full_name}</p>{/if}
+            </div>
+            <div>
+              <label for="producer-email" class="block text-sm font-semibold text-[#263b30]">Email address</label>
+              <input id="producer-email" bind:value={producerInviteForm.email} type="email" autocomplete="email" maxlength="150" required class={`${searchBox} mt-1.5`} />
+              {#if producerInviteForm.errors.email}<p class="mt-1.5 text-sm text-red-700" role="alert">{producerInviteForm.errors.email}</p>{/if}
+            </div>
+            <div>
+              <label for="producer-phone" class="block text-sm font-semibold text-[#263b30]">Phone number <span class="font-normal text-slate-500">(optional)</span></label>
+              <input id="producer-phone" bind:value={producerInviteForm.phone} type="tel" autocomplete="tel" maxlength="30" class={`${searchBox} mt-1.5`} />
+              {#if producerInviteForm.errors.phone}<p class="mt-1.5 text-sm text-red-700" role="alert">{producerInviteForm.errors.phone}</p>{/if}
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+            <p class="text-xs leading-5 text-slate-500">The invitation link lets the producer create their own password. No password is shown to you.</p>
+            <button type="submit" class={`${btnPrimary} disabled:cursor-wait disabled:opacity-60`} disabled={producerInviteForm.processing}>
+              {producerInviteForm.processing ? "Sending invitation…" : "Send invitation"}
+            </button>
+          </div>
+        </form>
       </section>
     {:else if activeView === "activity"}
       <section class="mt-8">
@@ -485,9 +686,47 @@
                     <li class="flex justify-between gap-3 py-3 text-sm"><span>{item.quantity} {item.unit} · {item.name} <span class="text-slate-500">({item.farm_name ?? "Farm"})</span></span><span class="font-semibold">{currency.format(item.subtotal)}</span></li>
                   {/each}
                 </ul>
+                {#if order.courier_name || order.tracking_number || order.estimated_delivery_at || order.delivery_fee > 0}
+                  <dl class="mt-4 grid gap-3 rounded-xl bg-[#f4f8f5] p-4 text-sm sm:grid-cols-2">
+                    {#if order.courier_name}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Courier</dt><dd class="mt-1 font-semibold">{order.courier_name}</dd></div>{/if}
+                    {#if order.tracking_number}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tracking number</dt><dd class="mt-1 break-all font-semibold">{order.tracking_number}</dd></div>{/if}
+                    {#if order.estimated_delivery_at}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated delivery</dt><dd class="mt-1 font-semibold">{fullDate(order.estimated_delivery_at)}</dd></div>{/if}
+                    {#if order.delivery_fee > 0}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Quoted delivery fee</dt><dd class="mt-1 font-semibold">{currency.format(order.delivery_fee)}</dd></div>{/if}
+                  </dl>
+                {/if}
               </article>
             {:else}
               <div class="rounded-2xl border border-dashed border-[#cbd9ce] bg-white p-10 text-center text-sm text-slate-600">No orders match these filters.</div>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    {:else if activeView === "contact-inbox"}
+      <section class="mt-8">
+        <h2 class="text-2xl font-bold tracking-tight">Contact inbox</h2>
+        <p class="mt-1 text-sm text-slate-500">Contact form submissions are stored here, including messages whose email notification could not be delivered.</p>
+        {#if contactMessages.length === 0}
+          <div class="mt-5 rounded-2xl border border-dashed border-[#cbd9ce] bg-white p-12 text-center text-slate-600">No contact messages have been received.</div>
+        {:else}
+          <div class="mt-5 space-y-4">
+            {#each contactMessages as message (message.id)}
+              <article class={`${card} p-5 sm:p-6 ${message.reviewed_at ? "opacity-80" : "ring-1 ring-amber-200"}`}>
+                <header class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h3 class="font-bold text-[#263b30]">{message.topic}</h3>
+                      <span class={`rounded-full px-2.5 py-1 text-xs font-bold ${message.reviewed_at ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{message.reviewed_at ? "Reviewed" : "Needs review"}</span>
+                      <span class={`rounded-full px-2.5 py-1 text-xs font-bold ${message.email_status === "sent" ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}`}>Email {message.email_status.replaceAll("_", " ")}</span>
+                    </div>
+                    <p class="mt-1 text-sm text-slate-600">{message.name} · <a class="font-semibold text-[#176b3b] hover:underline" href={`mailto:${message.email}`}>{message.email}</a>{message.phone ? ` · ${message.phone}` : ""}</p>
+                    <p class="mt-1 text-xs text-slate-500">{fullDate(message.created_at)}</p>
+                  </div>
+                  {#if !message.reviewed_at}
+                    <button type="button" class={btnPrimary} disabled={reviewingContactMessages[message.id]} onclick={() => markContactMessageReviewed(message)}>{reviewingContactMessages[message.id] ? "Saving…" : "Mark reviewed"}</button>
+                  {/if}
+                </header>
+                <p class="mt-4 whitespace-pre-wrap break-words rounded-xl bg-[#f7f9f5] p-4 text-sm leading-6 text-slate-700">{message.message}</p>
+              </article>
             {/each}
           </div>
         {/if}
@@ -518,7 +757,10 @@
         </div>
       </section>
     {/if}
+      </div>
+    </div>
   </section>
+  </div>
 
   {#if detailOpen}
     {@const person = selectedProducer ?? selectedCustomer}

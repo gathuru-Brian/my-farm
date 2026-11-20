@@ -15,11 +15,20 @@ class Order extends Model
         'status',
         'delivery_address',
         'payment_status',
+        'payment_method',
+        'delivery_fee',
+        'courier_name',
+        'tracking_number',
+        'estimated_delivery_at',
     ];
 
     protected function casts(): array
     {
-        return ['total_amount' => 'decimal:2'];
+        return [
+            'total_amount' => 'decimal:2',
+            'delivery_fee' => 'decimal:2',
+            'estimated_delivery_at' => 'datetime',
+        ];
     }
 
     public function customer(): BelongsTo

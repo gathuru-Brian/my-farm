@@ -7,12 +7,14 @@ use App\Actions\ConversationInbox;
 use App\Actions\CreateProductsFromBulk;
 use App\Models\Farm;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -118,6 +120,10 @@ class ProducerDashboardController extends Controller
                 'status' => $order->status,
                 'total_amount' => (float) $items->sum(fn ($item): float => (float) $item->subtotal),
                 'delivery_address' => $order->delivery_address,
+                'delivery_fee' => (float) $order->delivery_fee,
+                'courier_name' => $order->courier_name,
+                'tracking_number' => $order->tracking_number,
+                'estimated_delivery_at' => $order->estimated_delivery_at?->format('Y-m-d\TH:i'),
                 'customer_name' => $order->customer?->full_name,
                 'created_at' => $order->created_at?->toIso8601String(),
                 'items' => $items->map(fn ($item): array => [
@@ -201,6 +207,35 @@ class ProducerDashboardController extends Controller
         return to_route('dashboard')->with('status', 'Farm profile updated.');
     }
 
+    public function destroyFarm(Request $request, Farm $farm): RedirectResponse
+    {
+        $producer = $this->activeProducer($request->user());
+        $images = DB::transaction(function () use ($producer, $farm): array {
+            $lockedFarm = Farm::query()->lockForUpdate()->findOrFail($farm->getKey());
+            abort_unless($lockedFarm->producer_id === $producer->id, 404);
+
+            $products = $lockedFarm->products()->lockForUpdate()->get(['id', 'image']);
+            $hasProductOrders = OrderItem::query()->whereIn('product_id', $products->modelKeys())->exists();
+
+            if ($lockedFarm->orders()->exists() || $hasProductOrders) {
+                throw ValidationException::withMessages([
+                    'farm' => 'This farm has order history and cannot be deleted. Mark it inactive instead to preserve past orders.',
+                ]);
+            }
+
+            $images = $products->pluck('image')->filter()->all();
+            $lockedFarm->delete();
+
+            return $images;
+        });
+
+        if ($images !== []) {
+            Storage::disk('public')->delete($images);
+        }
+
+        return to_route('dashboard')->with('status', 'Farm and its products deleted.');
+    }
+
     public function storeProduct(Request $request): RedirectResponse
     {
         $producer = $this->activeProducer($request->user());
@@ -212,14 +247,21 @@ class ProducerDashboardController extends Controller
             'price' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
             'unit' => ['nullable', 'string', 'max:50'],
             'quantity_posted' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $farm = $producer->farms()->whereKey($data['farm_id'])->firstOrFail();
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('products', 'public');
+        }
 
         $farm->products()->create([
             ...$data,
             'name' => trim($data['name']),
             'category' => trim($data['category']),
             'unit' => $data['unit'] ?: 'kg',
+            'image' => $imagePath,
             'quantity_sold' => 0,
             'quantity_remaining' => $data['quantity_posted'],
             'status' => 'available',
@@ -292,16 +334,77 @@ class ProducerDashboardController extends Controller
         return to_route('dashboard')->with('status', 'Product updated.');
     }
 
+    public function destroyProduct(Request $request, Product $product): RedirectResponse
+    {
+        $producer = $this->activeProducer($request->user());
+        $image = DB::transaction(function () use ($producer, $product): ?string {
+            $lockedProduct = Product::query()->lockForUpdate()->findOrFail($product->getKey());
+            abort_unless($lockedProduct->farm()->where('producer_id', $producer->id)->exists(), 404);
+
+            if ($lockedProduct->orderItems()->exists()) {
+                throw ValidationException::withMessages([
+                    'product' => 'This product has order history and cannot be deleted. Mark the listing inactive instead to preserve past orders.',
+                ]);
+            }
+
+            $image = $lockedProduct->image;
+            $lockedProduct->delete();
+
+            return $image;
+        });
+
+        if ($image !== null) {
+            Storage::disk('public')->delete($image);
+        }
+
+        return to_route('dashboard')->with('status', 'Product deleted from your inventory.');
+    }
+
     public function updateOrderStatus(Request $request, Order $order, ChangeOrderStatus $changeOrderStatus): RedirectResponse
     {
         $producer = $this->activeProducer($request->user());
         $data = $request->validate([
-            'status' => ['required', Rule::in(['confirmed', 'processing', 'ready', 'shipped', 'delivered', 'cancelled'])],
+            'status' => ['sometimes', Rule::in(['confirmed', 'processing', 'ready', 'shipped', 'delivered', 'cancelled'])],
+            'delivery_fee' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
+            'courier_name' => ['nullable', 'string', 'max:150'],
+            'tracking_number' => ['nullable', 'string', 'max:150'],
+            'estimated_delivery_at' => ['nullable', 'date'],
         ]);
 
-        $changeOrderStatus->handle($producer, $order, $data['status']);
+        if (! isset($data['status']) && count(array_intersect(
+            array_keys($data),
+            ['delivery_fee', 'courier_name', 'tracking_number', 'estimated_delivery_at'],
+        )) === 0) {
+            throw ValidationException::withMessages([
+                'status' => 'Choose an order status or provide delivery information.',
+            ]);
+        }
 
-        return to_route('dashboard')->with('status', 'Order status updated.');
+        abort_unless(
+            $order->items()
+                ->whereHas('product.farm', fn ($farmsQuery) => $farmsQuery->where('producer_id', $producer->id))
+                ->exists(),
+            403,
+        );
+
+        if (isset($data['status'])) {
+            $changeOrderStatus->handle($producer, $order, $data['status']);
+        }
+
+        $deliveryFields = array_intersect_key($data, array_flip([
+            'delivery_fee',
+            'courier_name',
+            'tracking_number',
+            'estimated_delivery_at',
+        ]));
+        if ($deliveryFields !== []) {
+            $order->update($deliveryFields);
+        }
+
+        return to_route('dashboard')->with(
+            'status',
+            isset($data['status']) ? 'Order status updated.' : 'Delivery information updated.',
+        );
     }
 
     private function activeProducer(User $producer): User

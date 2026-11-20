@@ -58,6 +58,7 @@ class PlaceOrder
                     'delivery_address' => trim($data['delivery_address']),
                     'status' => 'pending',
                     'payment_status' => 'pending',
+                    'payment_method' => $data['payment_method'] ?? 'pay_on_delivery',
                 ]);
 
                 foreach ($farmItems as $line) {

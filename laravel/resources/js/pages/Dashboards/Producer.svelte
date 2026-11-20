@@ -10,7 +10,7 @@
   let farmForm = useForm({ farm_name: "", location: "", county: "", description: "" });
   let editingFarmId = $state(null);
   let farmEditForm = useForm({ farm_name: "", location: "", county: "", description: "", farm_size: "", farm_size_unit: "acres", phone: "", email: "", status: "active" });
-  let productForm = useForm({ farm_id: "", name: "", category: "", description: "", price: "", unit: "kg", quantity_posted: "" });
+  let productForm = useForm({ farm_id: "", name: "", category: "", description: "", price: "", unit: "kg", quantity_posted: "", image: null });
   let editingProductId = $state(null);
   let inventoryForm = useForm({ price: "", quantity_posted: "", status: "available" });
   let bulkForm = useForm({ products: [] });
@@ -22,6 +22,22 @@
   let autoRefresh = $state(typeof window !== "undefined" && window.localStorage.getItem("modern-farms-producer-auto-refresh") === "true");
   let orderFilter = $state("all");
   let updating = $state({});
+  let deliveryForms = $state({});
+  let deleting = $state({});
+  let deletionErrors = $state({});
+
+  $effect(() => {
+    for (const order of orders) {
+      if (!deliveryForms[order.id]) {
+        deliveryForms[order.id] = useForm({
+          delivery_fee: order.delivery_fee ?? "",
+          courier_name: order.courier_name ?? "",
+          tracking_number: order.tracking_number ?? "",
+          estimated_delivery_at: order.estimated_delivery_at ?? "",
+        });
+      }
+    }
+  });
 
   const currency = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 2 });
   const quantityFormat = new Intl.NumberFormat("en-KE", { maximumFractionDigits: 2 });
@@ -60,20 +76,22 @@
   };
 
   let pendingOrders = $derived(orders.filter((o) => o.status === "pending"));
+  let recentOrders = $derived(orders.slice(0, 3));
+  let unreadMessages = $derived(conversations.reduce((total, conversation) => total + Number(conversation.unread_count || 0), 0));
   let filteredOrders = $derived(orders.filter((o) => orderFilter === "all" || o.status === orderFilter));
   let lowStock = $derived(products.filter((p) => p.status === "available" && p.quantity_remaining <= 5));
   let initials = $derived((auth.user.full_name ?? "?").split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase());
 
   let tabs = $derived([
-    { view: "overview", label: "Overview" },
-    { view: "farms", label: "Farms" },
-    { view: "inventory", label: "Inventory", badge: lowStock.length || null, tone: "bg-red-500 text-white" },
-    { view: "orders", label: "Orders", badge: pendingOrders.length || null, tone: "bg-amber-400 text-amber-950", count: stats.orders ?? orders.length },
-    { view: "customers", label: "Customers" },
-    { view: "analytics", label: "Analytics" },
-    { view: "messages", label: "Messages" },
-    { view: "profile", label: "Profile" },
-    { view: "settings", label: "Settings" }
+    { view: "overview", label: "Overview", icon: "⌂" },
+    { view: "farms", label: "Farms", icon: "⌘" },
+    { view: "inventory", label: "Inventory", icon: "▦", badge: lowStock.length || null, tone: "bg-red-500 text-white" },
+    { view: "orders", label: "Orders", icon: "▤", badge: pendingOrders.length || null, tone: "bg-amber-400 text-amber-950", count: stats.orders ?? orders.length },
+    { view: "customers", label: "Customers", icon: "♙" },
+    { view: "analytics", label: "Analytics", icon: "◷" },
+    { view: "messages", label: "Messages", icon: "✉", count: unreadMessages || undefined },
+    { view: "profile", label: "Profile", icon: "◎" },
+    { view: "settings", label: "Settings", icon: "⚙" }
   ]);
 
   let statCards = $derived([
@@ -129,6 +147,25 @@
     });
   }
 
+  function deleteFarm(farm) {
+    if (!window.confirm(`Delete "${farm.farm_name}" and all ${farm.products_count} of its products? Farms with order history cannot be deleted.`)) return;
+
+    const key = `farm-${farm.id}`;
+    delete deletionErrors[key];
+    router.delete(`/dashboard/farms/${farm.id}`, {
+      preserveScroll: true,
+      onStart: () => { deleting[key] = true; },
+      onError: (errors) => { deletionErrors[key] = Object.values(errors)[0] ?? "The farm could not be deleted."; },
+      onSuccess: () => {
+        delete deletionErrors[key];
+        if (String(productForm.farm_id) === String(farm.id)) {
+          productForm.farm_id = farms.find((item) => item.id !== farm.id)?.id ?? "";
+        }
+      },
+      onFinish: () => { delete deleting[key]; },
+    });
+  }
+
   function saveProduct(event) {
     event.preventDefault();
     productForm.farm_id ||= farms[0]?.id ?? "";
@@ -137,6 +174,23 @@
       onSuccess: () => {
         productForm.resetAndClearErrors();
       },
+    });
+  }
+
+  function deleteProduct(product) {
+    if (!window.confirm(`Delete "${product.name}" from your inventory? Products with order history cannot be deleted.`)) return;
+
+    const key = `product-${product.id}`;
+    delete deletionErrors[key];
+    router.delete(`/dashboard/products/${product.id}`, {
+      preserveScroll: true,
+      onStart: () => { deleting[key] = true; },
+      onError: (errors) => { deletionErrors[key] = Object.values(errors)[0] ?? "The product could not be deleted."; },
+      onSuccess: () => {
+        delete deletionErrors[key];
+        if (editingProductId === product.id) editingProductId = null;
+      },
+      onFinish: () => { delete deleting[key]; },
     });
   }
 
@@ -315,14 +369,25 @@
     });
   }
 
+  function saveDeliveryDetails(order) {
+    const form = deliveryForms[order.id];
+    if (!form || updating[order.id]) return;
+
+    updating[order.id] = true;
+    form.post(`/dashboard/orders/${order.id}/status`, {
+      preserveScroll: true,
+      onFinish: () => { updating[order.id] = false; },
+    });
+  }
+
   function formatDate(value) {
     return value ? new Intl.DateTimeFormat("en-KE", { dateStyle: "medium" }).format(new Date(value)) : "";
   }
 </script>
 
 <PortalLayout title="Producer dashboard" user={auth.user}>
-  <section class="dashboard-shell mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-    <DashboardWelcome eyebrow="Producer portal" title={`Welcome, ${auth.user.full_name}`} description="Manage your farms, products, inventory, and customer orders.">
+  <section class="dashboard-shell mx-auto max-w-7xl space-y-5 px-5 py-6 lg:px-8 lg:py-8" data-dashboard-role="producer">
+    <DashboardWelcome compact accent="producer" eyebrow="Producer portal" title={`Welcome, ${auth.user.full_name}`} description="Manage your farms, products, inventory and customer orders">
       {#snippet children()}
         {#if auth.user.status === "active"}
           {#if pendingOrders.length > 0}
@@ -340,11 +405,19 @@
       {/snippet}
     </DashboardWelcome>
 
-    {#if auth.user.status === "active"}
-      <div class="mt-5">
-        <DashboardTabs tabs={tabs} activeView={activeView} onSelect={(view) => (activeView = view)} label="Producer dashboard sections" />
-      </div>
-    {/if}
+    <div class={`items-start gap-5 xl:gap-6 ${auth.user.status === "active" ? "grid lg:grid-cols-[190px_minmax(0,1fr)]" : ""}`}>
+      {#if auth.user.status === "active"}
+        <DashboardTabs
+          tabs={tabs}
+          activeView={activeView}
+          onSelect={(view) => (activeView = view)}
+          label="Producer dashboard sections"
+          heading="Farm workspace"
+          description="Manage your operation"
+          accent="producer"
+        />
+      {/if}
+      <div class="min-w-0">
 
     {#if flash?.status}
       <p class="mt-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-3.5 text-sm font-medium text-green-900" role="status"><span aria-hidden="true">✓</span> {flash.status}</p>
@@ -361,37 +434,32 @@
         </div>
       </div>
     {:else if activeView === "overview"}
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {#each statCards as s}
-          <button type="button" onclick={() => (activeView = s.view)} class={`${card} p-6 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl ${s.alert ? "ring-2 ring-amber-300" : ""}`}>
-            <span class={`grid size-11 place-items-center rounded-xl ${s.tile}`}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={s.stroke} stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={s.icon} /></svg>
-            </span>
-            <p class="mt-4 text-sm font-semibold text-slate-600">{s.label}</p>
-            <p class="mt-0.5 text-3xl font-extrabold tracking-tight text-[#173f2a]">{s.value}</p>
-            <p class="mt-0.5 text-sm text-slate-500">{s.sub ?? "\u00a0"}</p>
+          <button type="button" onclick={() => (activeView = s.view)} class={`${card} min-h-20 p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xl ${s.alert ? "ring-2 ring-amber-300" : ""}`}>
+            <p class="text-sm font-medium text-slate-500">{s.label}</p>
+            <p class="mt-0.5 text-2xl font-extrabold tracking-tight text-[#813f29]">{s.value}</p>
+            {#if s.sub}<p class="mt-0.5 text-xs text-slate-500">{s.sub}</p>{/if}
           </button>
         {/each}
       </div>
 
-      <div class="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <!-- Orders awaiting approval -->
-        <article class={`${card} p-6`}>
+      <div class="mt-3 grid items-start gap-3 lg:grid-cols-[1.4fr_1fr]">
+        <article class={`${card} min-w-0 p-4 sm:p-5`}>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div><h2 class="text-lg font-bold">Orders awaiting your approval</h2><p class="mt-1 text-sm text-slate-500">Accept or decline new orders from customers.</p></div>
-            <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "orders")}>View all →</button>
+            <button type="button" class="text-sm font-bold text-[#a84c2d] hover:underline" onclick={() => (activeView = "orders")}>View all →</button>
           </div>
           {#if pendingOrders.length === 0}
-            <div class="mt-5 rounded-xl bg-[#f4f8f5] p-8 text-center">
-              <span class="mx-auto grid size-12 place-items-center rounded-full bg-green-100 text-xl text-green-700" aria-hidden="true">✓</span>
-              <p class="mt-3 font-semibold">You're all caught up</p>
-              <p class="mt-1 text-sm text-slate-500">New customer orders will appear here.</p>
+            <div class="mt-4 flex items-center gap-3 rounded-xl bg-[#fbf0eb] px-4 py-3">
+              <span class="rounded-full bg-[#dcefe1] px-2.5 py-1 text-xs font-bold text-[#286344]">Done</span>
+              <span><span class="block text-sm font-bold">You're all caught up</span><span class="block text-xs text-slate-600">New orders will appear here</span></span>
             </div>
           {:else}
-            <ul class="mt-4 divide-y divide-slate-100">
+            <ul class="mt-3 divide-y divide-slate-100">
               {#each pendingOrders.slice(0, 4) as order (order.id)}
-                <li class="flex flex-wrap items-center justify-between gap-3 py-4">
-                  <div><p class="font-bold">Order #{order.id} · {order.customer_name ?? "Customer"}</p><p class="text-sm text-slate-500">{order.items.length} item{order.items.length === 1 ? "" : "s"} · {currency.format(order.total_amount)}</p></div>
+                <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div><p class="font-bold">#{order.id} · {order.customer_name ?? "Customer"}</p><p class="text-sm text-slate-500">{order.items.length} item{order.items.length === 1 ? "" : "s"} · {currency.format(order.total_amount)}</p></div>
                   <div class="flex gap-2">
                     <button type="button" class={btnPrimary} disabled={updating[order.id]} onclick={() => setOrderStatus(order, "confirmed")}>Accept</button>
                     <button type="button" class={btnDanger} disabled={updating[order.id]} onclick={() => setOrderStatus(order, "cancelled")}>Decline</button>
@@ -400,26 +468,42 @@
               {/each}
             </ul>
           {/if}
+
+          <div class="mt-3 border-t border-slate-100 pt-3">
+            <h3 class="text-sm font-bold">Recent orders</h3>
+            {#if recentOrders.length}
+              <ul class="mt-1 divide-y divide-slate-100">
+                {#each recentOrders as order (order.id)}
+                  <li class="flex items-center justify-between gap-3 py-2.5">
+                    <span class="min-w-0"><span class="block truncate text-sm font-semibold">#{order.id} {order.customer_name ?? "Customer"}</span><span class="block text-xs text-slate-500">{order.items.length} item{order.items.length === 1 ? "" : "s"}</span></span>
+                    <span class={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold capitalize ${badgeClass(order.status)}`}>{order.status}</span>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="mt-2 text-sm text-slate-500">Your order activity will appear here.</p>
+            {/if}
+          </div>
         </article>
 
-        <div class="space-y-6">
-          <article class={`${card} p-6`}>
+        <div class="space-y-3">
+          <article class={`${card} p-4 sm:p-5`}>
             <h2 class="text-lg font-bold">Low stock</h2>
             {#if lowStock.length === 0}
-              <p class="mt-3 rounded-xl bg-[#f4f8f5] p-4 text-sm text-slate-600">All listings are well stocked.</p>
+              <p class="mt-3 rounded-xl bg-[#e8f3e9] p-3 text-sm font-medium text-[#315d42]">All listings are well stocked</p>
             {:else}
               <ul class="mt-4 space-y-2">
                 {#each lowStock.slice(0, 4) as product (product.id)}
                   <li class="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm"><span class="font-semibold">{product.name}</span><span class="font-bold text-amber-800">{product.quantity_remaining} {product.unit} left</span></li>
                 {/each}
               </ul>
-              <button type="button" class="mt-3 text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "inventory")}>Update stock →</button>
+              <button type="button" class="mt-3 text-sm font-bold text-[#a84c2d] hover:underline" onclick={() => (activeView = "inventory")}>Update stock →</button>
             {/if}
           </article>
-          <article class={`${card} p-6`}>
+          <article class={`${card} p-4 sm:p-5`}>
             <div class="flex items-center justify-between gap-4">
               <h2 class="text-lg font-bold">Your farms</h2>
-              <button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => (activeView = "farms")}>Manage farms</button>
+              <button type="button" class="text-sm font-bold text-[#a84c2d] hover:underline" onclick={() => (activeView = "farms")}>Manage farms</button>
             </div>
             {#if farms.length === 0}
               <p class="mt-4 text-sm text-slate-600">Add a farm to start listing products.</p>
@@ -461,10 +545,11 @@
                         <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e7f3df]" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#176b3b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d={icons.leaf} /></svg></span>
                         <div><h3 class="text-lg font-bold">{farm.farm_name}</h3><p class="mt-1 text-sm text-slate-600">{[farm.location, farm.county].filter(Boolean).join(", ") || "Location not set"}</p></div>
                       </div>
-                      <div class="flex items-center gap-3"><span class={`rounded-full px-3 py-1 text-xs font-bold capitalize ${badgeClass(farm.status)}`}>{farm.status}</span><button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => startEditingFarm(farm)}>Edit</button></div>
+                      <div class="flex flex-wrap items-center gap-3"><span class={`rounded-full px-3 py-1 text-xs font-bold capitalize ${badgeClass(farm.status)}`}>{farm.status}</span><button type="button" class="text-sm font-bold text-[#176b3b] hover:underline" onclick={() => startEditingFarm(farm)}>Edit</button><button type="button" class="text-sm font-bold text-red-700 hover:underline disabled:opacity-50" aria-label={`Delete ${farm.farm_name}`} disabled={deleting[`farm-${farm.id}`]} onclick={() => deleteFarm(farm)}>{deleting[`farm-${farm.id}`] ? "Deleting…" : "Delete farm"}</button></div>
                     </div>
                     {#if farm.description}<p class="mt-4 text-sm leading-6 text-slate-600">{farm.description}</p>{/if}
                     <p class="mt-4 inline-block rounded-full bg-[#f1f6ef] px-3 py-1 text-xs font-semibold text-slate-600">{farm.products_count} listed products{farm.farm_size ? ` · ${farm.farm_size} ${farm.farm_size_unit ?? "acres"}` : ""}</p>
+                    {#if deletionErrors[`farm-${farm.id}`]}<p class="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">{deletionErrors[`farm-${farm.id}`]}</p>{/if}
                   {/if}
                 </div>
               {/each}
@@ -494,7 +579,7 @@
           {:else}
             <div class="overflow-x-auto">
               <table class="w-full min-w-[720px] text-left text-sm">
-                <thead class="bg-[#f4f8f5] text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-6 py-3.5 font-semibold">Product</th><th class="px-6 py-3.5 font-semibold">Price</th><th class="px-6 py-3.5 font-semibold">Stock</th><th class="px-6 py-3.5 font-semibold">Status</th><th class="px-6 py-3.5 font-semibold">Action</th></tr></thead>
+                <thead class="bg-[#f4f8f5] text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-6 py-3.5 font-semibold">Product</th><th class="px-6 py-3.5 font-semibold">Price</th><th class="px-6 py-3.5 font-semibold">Stock</th><th class="px-6 py-3.5 font-semibold">Status</th><th class="px-6 py-3.5 font-semibold">Actions</th></tr></thead>
                 <tbody class="divide-y divide-slate-100">
                   {#each products as product (product.id)}
                     <tr class="transition hover:bg-[#fafcf9]">
@@ -524,7 +609,8 @@
                         {#if editingProductId === product.id}
                           <div class="flex gap-3"><button type="button" class="font-bold text-[#176b3b] hover:underline" onclick={() => saveInventory(product)}>Save</button><button type="button" class="font-semibold text-slate-500 hover:underline" onclick={() => (editingProductId = null)}>Cancel</button></div>
                         {:else}
-                          <button type="button" class="font-bold text-[#176b3b] hover:underline" onclick={() => startEditingProduct(product)}>Edit stock</button>
+                          <div class="flex flex-wrap items-center gap-x-3 gap-y-2"><button type="button" class="font-bold text-[#176b3b] hover:underline" onclick={() => startEditingProduct(product)}>Edit stock</button><button type="button" class="font-bold text-red-700 hover:underline disabled:opacity-50" aria-label={`Delete ${product.name}`} disabled={deleting[`product-${product.id}`]} onclick={() => deleteProduct(product)}>{deleting[`product-${product.id}`] ? "Deleting…" : "Delete"}</button></div>
+                          {#if deletionErrors[`product-${product.id}`]}<p class="mt-2 max-w-48 text-xs text-red-700" role="alert">{deletionErrors[`product-${product.id}`]}</p>{/if}
                         {/if}
                       </td>
                     </tr>
@@ -557,6 +643,9 @@
             <input id="product-unit" bind:value={productForm.unit} maxlength="50" class={field} />
             <label for="product-description" class={`${lbl} mt-4`}>Description</label>
             <textarea id="product-description" bind:value={productForm.description} rows="3" class={field}></textarea>
+            <label for="product-image" class={`${lbl} mt-4`}>Product image</label>
+            <input id="product-image" type="file" accept="image/jpeg,image/png,image/webp" onchange={(event) => (productForm.image = event.currentTarget.files?.[0] ?? null)} class={`${field} file:mr-3 file:rounded-lg file:border-0 file:bg-[#eaf1e3] file:px-3 file:py-2 file:font-semibold file:text-[#173f2a]`} />
+            {#if productForm.errors.image}<p class="mt-1 text-sm text-red-700" role="alert">{productForm.errors.image}</p>{/if}
             <button class={`${btnPrimary} mt-5 w-full py-3`}>Add to marketplace</button>
           {/if}
         </form>
@@ -627,6 +716,34 @@
                     <li class="flex justify-between gap-3 py-3 text-sm"><span>{item.quantity} {item.unit} · {item.name}</span><span class="font-semibold">{currency.format(item.subtotal)}</span></li>
                   {/each}
                 </ul>
+                {#if deliveryForms[order.id]}
+                  {@const deliveryForm = deliveryForms[order.id]}
+                  <fieldset class="mt-5 rounded-xl border border-[#e3ebe5] bg-[#fbfcfa] p-4">
+                    <legend class="px-1 text-sm font-bold text-[#34483c]">Delivery details</legend>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                      <label class={lbl}>Delivery fee (KES)
+                        <input type="number" min="0" step="0.01" bind:value={deliveryForm.delivery_fee} class={field} aria-invalid={deliveryForm.errors.delivery_fee ? "true" : undefined} />
+                        {#if deliveryForm.errors.delivery_fee}<span class="mt-1 block text-xs text-red-700" role="alert">{deliveryForm.errors.delivery_fee}</span>{/if}
+                      </label>
+                      <label class={lbl}>Courier
+                        <input type="text" maxlength="150" bind:value={deliveryForm.courier_name} class={field} aria-invalid={deliveryForm.errors.courier_name ? "true" : undefined} />
+                        {#if deliveryForm.errors.courier_name}<span class="mt-1 block text-xs text-red-700" role="alert">{deliveryForm.errors.courier_name}</span>{/if}
+                      </label>
+                      <label class={lbl}>Tracking number
+                        <input type="text" maxlength="150" bind:value={deliveryForm.tracking_number} class={field} aria-invalid={deliveryForm.errors.tracking_number ? "true" : undefined} />
+                        {#if deliveryForm.errors.tracking_number}<span class="mt-1 block text-xs text-red-700" role="alert">{deliveryForm.errors.tracking_number}</span>{/if}
+                      </label>
+                      <label class={lbl}>Estimated delivery
+                        <input type="datetime-local" bind:value={deliveryForm.estimated_delivery_at} class={field} aria-invalid={deliveryForm.errors.estimated_delivery_at ? "true" : undefined} />
+                        {#if deliveryForm.errors.estimated_delivery_at}<span class="mt-1 block text-xs text-red-700" role="alert">{deliveryForm.errors.estimated_delivery_at}</span>{/if}
+                      </label>
+                    </div>
+                    {#if deliveryForm.errors.status}<p class="mt-2 text-sm text-red-700" role="alert">{deliveryForm.errors.status}</p>{/if}
+                    <div class="mt-3 flex justify-end">
+                      <button type="button" class={btnPrimary} disabled={updating[order.id] || deliveryForm.processing} onclick={() => saveDeliveryDetails(order)}>{deliveryForm.processing ? "Saving…" : "Save delivery details"}</button>
+                    </div>
+                  </fieldset>
+                {/if}
                 {#if nextStatuses[order.status]}
                   <div class="mt-4 flex flex-wrap justify-end gap-2">
                     {#each nextStatuses[order.status] as status}
@@ -711,12 +828,14 @@
           <div class="py-5"><strong class="block">Low inventory</strong><span class="mt-1 block text-sm text-slate-500">{lowStock.length} listings have 5 or fewer units remaining.</span></div>
         </article>
       </section>
-    {:else}
+    {:else if activeView === "messages"}
       <section class="mt-8">
         <h2 class="text-2xl font-bold tracking-tight">Messages with customers</h2>
         <p class="mb-5 mt-1 text-sm text-slate-500">Answer questions about your harvest and orders.</p>
-        <MessageInbox user={auth.user} {conversations} {errors} />
+        <MessageInbox user={auth.user} {conversations} {errors} accent="producer" />
       </section>
     {/if}
+      </div>
+    </div>
   </section>
 </PortalLayout>

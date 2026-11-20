@@ -2,16 +2,14 @@
   import { Link } from "@inertiajs/svelte";
   import SiteHeader from "../components/SiteHeader.svelte";
   import SiteFooter from "../components/SiteFooter.svelte";
+  import ProductImage from "../components/ProductImage.svelte";
 
-  let { auth } = $props();
-
-  // Placeholder figures: replace with real numbers or remove until you have them
-  const stats = [
-    { value: "500+", label: "Local farmers" },
-    { value: "30+", label: "Counties reached" },
-    { value: "24h", label: "Typical delivery" },
-    { value: "0", label: "Middlemen" }
-  ];
+  let { auth, stats = {}, featured = [] } = $props();
+  let liveStats = $derived([
+    { value: stats.farmers ?? 0, label: "Active producers" },
+    { value: stats.farms ?? 0, label: "Active farms" },
+    { value: stats.products ?? 0, label: "Available products" },
+  ]);
 
   const values = [
     { title: "Know your farmer", text: "See who grew your food and where it came from." },
@@ -19,19 +17,14 @@
     { title: "Fresher by default", text: "Shorter journeys from field to table mean better taste." }
   ];
 
-  // Drop matching photos into public/images. Cards show a green gradient + emoji until the file exists.
   const categories = [
-    { name: "Vegetables", note: "Kale, tomatoes, onions", icon: "🥬", image: "/images/vegetables.jpg" },
-    { name: "Fruit", note: "Mangoes, avocados, bananas", icon: "🥭", image: "/images/fruits.jpg" },
-    { name: "Dairy & eggs", note: "Milk, yoghurt, eggs", icon: "🥛", image: "/images/dairy.png" },
-    { name: "Grains & tubers", note: "Maize, potatoes, beans", icon: "🌽", image: "/images/maize.jpg" }
-  ];
-
-  // Placeholder listings: replace with real products from your database
-  const featured = [
-    { name: "Fresh kale (sukuma wiki)", farm: "Kinangop Greens", place: "Nyandarua", price: "KES 60", unit: "per bunch", tag: "Picked today", icon: "🥬", image: "/images/kale.jpg" },
-    { name: "Irish potatoes", farm: "Mau Summit Growers", place: "Nakuru", price: "KES 85", unit: "per kg", tag: "Bestseller", icon: "🥔", image: "/images/potatoes.jpg" },
-    { name: "Fresh milk", farm: "Limuru Dairy Co-op", place: "Kiambu", price: "KES 70", unit: "per litre", tag: "Chilled delivery", icon: "🥛", image: "/images/milk.jpg" }
+    { name: "Vegetables", note: "Kale, tomatoes, onions", icon: "🥬", image: "/images/marketplace-greens.jpg" },
+    { name: "Fruit", note: "Mangoes, avocados, bananas", icon: "🥭", image: "/images/marketplace-bananas.jpg" },
+    { name: "Dairy & eggs", note: "Milk, yoghurt, eggs", icon: "🥛", image: "/images/marketplace-milk.jpg" },
+    { name: "Grains & tubers", note: "Maize, potatoes, beans", icon: "🌽", image: "/images/marketplace-maize.jpg" },
+    {name: "Meat & poultry", note: "Beef, chicken, goat", icon: "🍗", image: "/images/marketplace-meat.jpg" },
+    { name: "Herbs & spices", note: "Coriander, turmeric, garlic", icon: "🌿", image: "/images/marketplace-herbs.jpg" },
+    { name: "Honey & preserves", note: "Honey, jams, pickles", icon: "🍯", image: "/images/marketplace-honey.jpg" }
   ];
 
   const pillars = [
@@ -49,24 +42,6 @@
     { n: "4", title: "Receive", text: "Get your produce delivered, then leave a recommendation." }
   ];
 
-  // Placeholder feedback: swap for real customer recommendations and farmer responses
-  const recommendations = [
-    {
-      quote: "The kale and spinach were noticeably fresher than the supermarket, and I knew exactly who grew them.",
-      name: "Brian O.", role: "Customer, Nairobi", rating: 5,
-      reply: { from: "Kinangop Greens", text: "Thank you, Brian! We harvest the morning of delivery. See you next week." }
-    },
-    {
-      quote: "I could message the farmer, ask what's best this week, and get a straight answer.",
-      name: "Amina H.", role: "Chef, Mombasa", rating: 5,
-      reply: { from: "Limuru Dairy Co-op", text: "Happy to help, Amina. We'll flag new batches to you before they go live." }
-    },
-    {
-      quote: "Delivery took a day longer than I expected, but the produce was excellent.",
-      name: "Peter K.", role: "Customer, Nakuru", rating: 4,
-      reply: { from: "Mau Summit Growers", text: "Thanks for the honest feedback, Peter. We've added a courier closer to Nakuru." }
-    }
-  ];
 </script>
 
 <svelte:head>
@@ -121,7 +96,7 @@
     <!-- Glass caption card, bottom right -->
     <div class="absolute bottom-8 right-5 hidden max-w-xs rounded-2xl border border-white/25 bg-white/10 p-5 shadow-2xl backdrop-blur-md md:block lg:bottom-12 lg:right-8">
       <div class="flex items-center gap-3">
-        <span class="grid size-10 place-items-center rounded-xl bg-white/90 text-xl" aria-hidden="true">🌱</span>
+        <img src="/images/modern-farms-mark.svg" alt="" class="size-10" aria-hidden="true" />
         <p class="text-sm font-bold">Rooted in the land</p>
       </div>
       <p class="mt-3 text-sm leading-6 text-white/85">A closer connection between the people who grow and the people who eat.</p>
@@ -131,7 +106,7 @@
   <!-- Stats -->
   <section class="border-b border-[#e1e9de] bg-white">
     <dl class="mx-auto grid max-w-7xl grid-cols-2 gap-y-8 px-5 py-10 md:grid-cols-4 lg:px-8">
-      {#each stats as s}
+      {#each liveStats as s}
         <div class="text-center">
           <dt class="text-4xl font-extrabold tracking-tight text-[#173f2a]">{s.value}</dt>
           <dd class="mt-1 text-sm text-slate-500">{s.label}</dd>
@@ -149,8 +124,8 @@
           <img src="/images/hero.jpg" alt="Farmers harvesting on a local farm" loading="lazy" onerror={hide} class="absolute inset-0 h-full w-full object-cover" />
         </div>
         <div class="absolute -bottom-6 right-4 rounded-2xl bg-white px-6 py-4 shadow-xl sm:right-8">
-          <p class="text-3xl font-extrabold text-[#173f2a]">500+</p>
-          <p class="text-sm text-slate-500">Farmers earning more</p>
+          <p class="text-3xl font-extrabold text-[#173f2a]">{stats.farmers ?? 0}</p>
+          <p class="text-sm text-slate-500">Active producers</p>
         </div>
       </div>
       <div>
@@ -203,11 +178,11 @@
       <!-- Featured product cards -->
       <h3 class="mt-16 text-2xl font-bold tracking-tight text-[#173026]">Fresh this week</h3>
       <div class="mt-6 grid gap-6 md:grid-cols-3">
-        {#each featured as p}
-          <Link href={auth?.user ? "/dashboard" : "/register"} class="group overflow-hidden rounded-3xl border border-[#e1e9de] bg-[#fbfcf8] shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+        {#each featured as p (p.id)}
+          <Link href={`/products/${p.id}`} class="group overflow-hidden rounded-3xl border border-[#e1e9de] bg-[#fbfcf8] shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
             <div class="relative h-56 overflow-hidden bg-gradient-to-br from-[#d8e9b8] to-[#9cc27a]">
               <span class="absolute inset-0 grid place-items-center text-7xl opacity-50" aria-hidden="true">{p.icon}</span>
-              <img src={p.image} alt={p.name} loading="lazy" onerror={hide} class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              <ProductImage src={p.image} name={p.name} category={p.category} className="h-full w-full" imageClassName="transition duration-500 group-hover:scale-105" />
               <span class="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-[#173f2a] shadow">{p.tag}</span>
             </div>
             <div class="p-6">
@@ -219,6 +194,11 @@
               </div>
             </div>
           </Link>
+        {:else}
+          <div class="col-span-full rounded-3xl border border-dashed border-[#cbd9ce] bg-white p-10 text-center">
+            <p class="font-semibold text-[#1b3527]">Fresh listings are coming soon</p>
+            <p class="mt-2 text-sm text-slate-500">Approved farms and available products will appear here.</p>
+          </div>
         {/each}
       </div>
     </div>
@@ -255,34 +235,6 @@
           </li>
         {/each}
       </ol>
-    </div>
-  </section>
-
-  <!-- Recommendations & responses -->
-  <section id="recommendations" class="mx-auto max-w-7xl scroll-mt-20 px-5 py-16 sm:py-20 lg:px-8 lg:py-24">
-    <div class="max-w-2xl">
-      <h2 class="text-3xl font-bold tracking-[-.035em] text-[#173026] sm:text-4xl">Recommendations and responses</h2>
-      <p class="mt-4 leading-7 text-slate-600">Customers recommend. Farmers reply. Honest feedback, answered in the open.</p>
-    </div>
-    <div class="mt-10 grid gap-5 lg:grid-cols-3">
-      {#each recommendations as r}
-        <figure class="flex flex-col rounded-3xl border border-[#e1e9de] bg-white p-7">
-          <div class="flex gap-0.5 text-lg text-[#e0a526]" role="img" aria-label="{r.rating} out of 5 stars">
-            {#each Array(5) as _, i}<span class={i < r.rating ? "" : "text-slate-200"}>★</span>{/each}
-          </div>
-          <blockquote class="mt-4 flex-1 text-lg leading-8 text-[#1b3527]">“{r.quote}”</blockquote>
-          {#if r.reply?.from || r.reply?.text}
-            <div class="mt-6 rounded-2xl bg-[#f3f7ef] p-4">
-              {#if r.reply.from}<p class="text-sm font-bold text-[#28623a]">Response from {r.reply.from}</p>{/if}
-              {#if r.reply.text}<p class="mt-1 text-sm leading-6 text-slate-600">{r.reply.text}</p>{/if}
-            </div>
-          {/if}
-          <figcaption class="mt-6 flex items-center gap-3">
-            <span class="grid size-10 place-items-center rounded-full bg-[#d8e9b8] font-bold text-[#173f2a]" aria-hidden="true">{r.name[0]}</span>
-            <span><span class="block font-bold">{r.name}</span><span class="text-sm text-slate-500">{r.role}</span></span>
-          </figcaption>
-        </figure>
-      {/each}
     </div>
   </section>
 

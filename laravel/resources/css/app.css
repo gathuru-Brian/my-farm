@@ -3,8 +3,8 @@
 /* stylelint-disable at-rule-no-unknown */
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
-/* stylelint-enable at-rule-no-unknown */
 @source '../js/**/*.svelte';
+/* stylelint-enable at-rule-no-unknown */
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
@@ -114,13 +114,11 @@ textarea:focus {
 
 .brand-mark {
     display: grid;
-    width: 2.4rem;
-    height: 2.4rem;
+    width: 2.5rem;
+    height: 2.5rem;
     place-items: center;
-    border: 1px solid #d9e8d8;
-    border-radius: 0.85rem;
-    background: #f1f7ed;
-    font-size: 1.15rem;
+    border-radius: 0.55rem;
+    background: #dcebdd;
 }
 
 .portal-footer {
@@ -192,20 +190,40 @@ textarea:focus {
     animation: page-arrive 360ms ease-out both;
 }
 
-main nav[aria-label$='dashboard sections'] {
+.dashboard-tabs {
     max-width: 100%;
-    overflow-x: auto;
+}
+
+.dashboard-tabs__items {
     scrollbar-width: thin;
     overscroll-behavior-inline: contain;
 }
 
-main nav[aria-label$='dashboard sections'] > button {
-    flex: 0 0 auto;
-    white-space: nowrap;
+@media (max-width: 1023px) {
+    .dashboard-tabs__items {
+        overflow-x: auto;
+    }
 }
 
 .dashboard-shell {
     animation: page-arrive 360ms ease-out both;
+    --dashboard-accent: #4caf50;
+    --dashboard-accent-soft: #eaf6e8;
+}
+
+.dashboard-shell[data-dashboard-role='customer'] {
+    --dashboard-accent: #4caf50;
+    --dashboard-accent-soft: #eaf6e8;
+}
+
+.dashboard-shell[data-dashboard-role='producer'] {
+    --dashboard-accent: #c46a45;
+    --dashboard-accent-soft: #fbefe9;
+}
+
+.dashboard-shell[data-dashboard-role='admin'] {
+    --dashboard-accent: #64748b;
+    --dashboard-accent-soft: #eef2f6;
 }
 
 .dashboard-shell h1,
@@ -229,7 +247,7 @@ main nav[aria-label$='dashboard sections'] > button {
 }
 
 .dashboard-shell article[class*='border-[#e3ebe5]']:hover {
-    border-color: #cfddca;
+    border-color: color-mix(in srgb, var(--dashboard-accent) 32%, white);
     box-shadow:
         0 20px 38px -30px rgb(28 69 43 / 38%),
         0 2px 6px rgb(28 69 43 / 5%);

@@ -10,17 +10,16 @@
 
 <div class="portal-layout flex min-h-screen flex-col bg-[#f6f8f3] text-[#173026]">
   <header class="site-header border-b">
-    <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-3 lg:px-8">
-      <Link href="/" class="group inline-flex items-center gap-2.5 font-bold tracking-tight text-[#174b32]">
-        <span class="brand-mark group-hover:rotate-[-5deg]" aria-hidden="true">🌱</span>
-        <span>Modern Farms</span>
+    <div class="mx-auto flex w-full max-w-[1800px] items-center justify-between gap-4 px-5 py-4 lg:px-8">
+      <Link href="/" class="group inline-flex items-center font-bold tracking-tight text-[#174b32]" aria-label="Modern Farms home">
+        <img src="/images/modern-farms-logo.svg" alt="Modern Farms" class="h-10 w-auto transition-transform group-hover:rotate-[-2deg]" />
       </Link>
       <nav class="flex items-center gap-2 text-sm sm:gap-3" aria-label="Main navigation">
         {#if user}
-          <span class="hidden rounded-full bg-[#f3f7ef] px-3 py-2 font-medium text-slate-600 sm:inline">{user.full_name}</span>
+          <span class="hidden font-medium text-slate-600 sm:inline">{user.full_name}, {user.role === "administrator" ? "Admin" : user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>
           <button
             type="button"
-            class="rounded-xl border border-[#dce7df] bg-white px-4 py-2.5 font-semibold text-[#294a36] shadow-sm hover:border-[#b7cfb9] hover:bg-[#f6f9f3]"
+            class="rounded-xl border border-[#dce7df] bg-white px-4 py-2.5 font-semibold text-[#294a36] hover:border-[#b7cfb9] hover:bg-[#f6f9f3]"
             onclick={() => router.post("/logout")}
           >
             Sign out
@@ -37,7 +36,7 @@
   <main class="flex-1">{@render children?.()}</main>
   <footer class="portal-footer">
     <div class="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-      <p class="font-semibold text-[#385541]">🌱 Modern Farms</p>
+      <img src="/images/modern-farms-logo.svg" alt="Modern Farms" class="h-9 w-auto self-start" />
       <p>Good food starts with good farms.</p>
     </div>
   </footer>

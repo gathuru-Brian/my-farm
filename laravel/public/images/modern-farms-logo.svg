@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 236 52" fill="none">
+  <rect x="2" y="3" width="46" height="46" rx="15" fill="#173F2A"/>
+  <path d="M25 37V20" stroke="#F6F3EA" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M25 25c-7.7 0-11-3.1-11-8.3 6.7-.5 11 2.4 11 8.3Z" fill="#C6DF9E"/>
+  <path d="M25 30c7.7 0 11-3.1 11-8.3-6.7-.5-11 2.4-11 8.3Z" fill="#8DBB73"/>
+  <path d="M16 38h18M19 42h12" stroke="#D8E9B8" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="60" y="27" fill="#173F2A" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="-.45">Modern Farms</text>
+  <text x="61" y="41" fill="#52715A" font-family="Arial, Helvetica, sans-serif" font-size="7.5" font-weight="700" letter-spacing="1.55">FARM FRESH · DIRECT TO YOU</text>
+</svg>

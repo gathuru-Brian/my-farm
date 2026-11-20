@@ -4,6 +4,14 @@ Laravel is the dedicated backend and Svelte with Inertia is the application
 UI. All application workflows belong in this Laravel app.
 The admin dashboard includes producer approvals, marketplace controls, customer
 records, and an order review queue.
+Producers can manage and delete their farms and product listings; listings with
+order history are protected so past purchases remain intact.
+
+Products with a producer-uploaded photo show that photo throughout the
+marketplace. Listings without one use a bundled category illustration, labeled
+as illustrative so it is not mistaken for the seller's exact item. The sample
+photos in `public/images/marketplace-*` are from
+[Unsplash](https://unsplash.com/license) and are used under the Unsplash License.
 
 ## Requirements
 
@@ -101,3 +109,21 @@ rotated. `.env.example` is now credential-free. Configure production mail before
 enabling account recovery; in local development, Laravel's default `log`
 mailer writes reset messages to the application log. In production, verify the
 configured transport by completing an actual password reset before cutover.
+
+Configure `MAIL_CONTACT_ADDRESS` and a working mail transport for contact form
+notifications. Contact submissions are persisted and available in the admin
+dashboard's Contact inbox even when notification delivery fails; review that
+inbox during operations.
+
+M-Pesa checkout uses Daraja STK Push. Set `MPESA_ENVIRONMENT`,
+`MPESA_BASE_URL`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`,
+`MPESA_SHORTCODE`, and `MPESA_PASSKEY` in the deployment environment, and set
+`MPESA_CALLBACK_URL` to a publicly reachable HTTPS endpoint ending in
+`/api/mpesa/callback`. Start with Safaricom sandbox credentials and complete a
+real sandbox checkout and callback test before switching to production
+credentials. Never commit provider credentials.
+
+Producer-entered delivery fees are displayed as a separate quote and are not
+included in the order total or the M-Pesa amount. Confirm collection of that
+fee with the customer outside checkout until a delivery-fee payment flow is
+implemented.

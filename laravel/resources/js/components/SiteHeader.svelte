@@ -16,9 +16,8 @@
 
 <header class="site-header sticky top-0 z-40 border-b border-[#e1e9de] bg-white/90 backdrop-blur-lg">
   <div class="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-3.5 lg:px-8">
-    <Link href="/" class="flex items-center gap-2.5 text-xl font-extrabold tracking-tight text-[#173f2a]">
-      <span class="grid size-9 place-items-center rounded-xl bg-[#173f2a] text-lg" aria-hidden="true">🌱</span>
-      Modern Farms
+    <Link href="/" class="flex items-center text-xl font-extrabold tracking-tight text-[#173f2a]" aria-label="Modern Farms home">
+      <img src="/images/modern-farms-logo.svg" alt="Modern Farms" class="h-10 w-auto" />
     </Link>
 
     <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">

@@ -28,6 +28,20 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'mpesa' => [
+        'environment' => env('MPESA_ENVIRONMENT', env('MPESA_ENV', 'sandbox')),
+        'consumer_key' => env('MPESA_CONSUMER_KEY'),
+        'consumer_secret' => env('MPESA_CONSUMER_SECRET'),
+        'shortcode' => env('MPESA_SHORTCODE'),
+        'passkey' => env('MPESA_PASSKEY'),
+        'base_url' => env('MPESA_BASE_URL', 'https://sandbox.safaricom.co.ke'),
+        'callback_url' => env('MPESA_CALLBACK_URL', rtrim((string) env('APP_URL', 'http://localhost:8000'), '/').'/api/mpesa/callback'),
+    ],
+
+    'contact' => [
+        'address' => env('MAIL_CONTACT_ADDRESS', env('MAIL_FROM_ADDRESS')),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

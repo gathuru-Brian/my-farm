@@ -62,7 +62,7 @@ return [
         ],
 
         'resend' => [
-            'transport' => 'resend',
+            'transport' => 'mailgun',
         ],
 
         'sendmail' => [
@@ -111,8 +111,16 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        'address' => env('MAIL_FROM_ADDRESS', 'marketing@modernfarms.com'),
+        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'modern farms platform')),
+    ],
+
+    'markdown' => [
+        'theme' => env('MAIL_MARKDOWN_THEME', 'default'),
+
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
     ],
 
 ];

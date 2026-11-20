@@ -1,7 +1,12 @@
 <script>
   import { router, useForm } from "@inertiajs/svelte";
 
-  let { user, producers = [], conversations = [], errors = {} } = $props();
+  let { user, producers = [], conversations = [], errors = {}, accent = "customer" } = $props();
+  const palettes = {
+    customer: { button: "bg-[#276f45] hover:bg-[#1b5636]", bubble: "bg-[#276f45]", badge: "bg-[#276f45]", focus: "focus:border-[#4caf50] focus:ring-[#4caf50]/20" },
+    producer: { button: "bg-[#a84c2d] hover:bg-[#873b24]", bubble: "bg-[#a84c2d]", badge: "bg-[#a84c2d]", focus: "focus:border-[#c46a45] focus:ring-[#c46a45]/20" },
+  };
+  let theme = $derived(palettes[accent] ?? palettes.customer);
   let selectedId = $state(null);
   let selectedProducerId = $state("");
   let newConversationForm = useForm({ producer_id: "" });
@@ -57,7 +62,7 @@
           <select value={selectedProducerId || producers[0]?.id || ""} onchange={(event) => selectedProducerId = event.currentTarget.value} aria-label="Choose a producer" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-2 text-sm">
             {#each producers as producer (producer.id)}<option value={producer.id}>{producer.name}</option>{/each}
           </select>
-          <button type="submit" disabled={newConversationForm.processing} class="rounded-lg bg-[#176b3b] px-3 py-2 text-sm font-bold text-white hover:bg-[#0b482b] disabled:cursor-wait disabled:opacity-60">{newConversationForm.processing ? "…" : "New"}</button>
+          <button type="submit" disabled={newConversationForm.processing} class={`rounded-lg px-3 py-2 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60 ${theme.button}`}>{newConversationForm.processing ? "…" : "New"}</button>
         </form>
         {#if newConversationForm.errors.producer_id}<p class="px-4 pb-3 text-xs text-red-700" role="alert">{newConversationForm.errors.producer_id}</p>{/if}
       {:else if user.role === "customer"}
@@ -73,7 +78,7 @@
             <button type="button" class={`w-full rounded-xl px-3 py-3 text-left hover:bg-[#f4f8f5] ${selectedConversation?.id === conversation.id ? "bg-[#edf5ed]" : ""}`} onclick={() => openConversation(conversation)}>
               <span class="flex items-center justify-between gap-2">
                 <span class="truncate font-semibold">{conversation.peer.name}</span>
-                {#if conversation.unread_count > 0}<span class="rounded-full bg-[#176b3b] px-2 py-0.5 text-xs font-bold text-white">{conversation.unread_count}</span>{/if}
+                {#if conversation.unread_count > 0}<span class={`rounded-full px-2 py-0.5 text-xs font-bold text-white ${theme.badge}`}>{conversation.unread_count}</span>{/if}
               </span>
               <span class="mt-1 block truncate text-xs text-slate-500">{conversation.last_message?.body ?? "No messages yet"}</span>
             </button>
@@ -95,7 +100,7 @@
         {:else}
           {#each selectedConversation.messages as message (message.id)}
             <div class={`flex ${message.sender_id === user.id ? "justify-end" : "justify-start"}`}>
-              <article class={`max-w-[85%] rounded-2xl px-4 py-3 ${message.sender_id === user.id ? "rounded-br-md bg-[#176b3b] text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-800"}`}>
+              <article class={`max-w-[85%] rounded-2xl px-4 py-3 ${message.sender_id === user.id ? `rounded-br-md ${theme.bubble} text-white` : "rounded-bl-md border border-slate-200 bg-white text-slate-800"}`}>
                 <p class="whitespace-pre-wrap break-words text-sm">{message.body}</p>
                 <time class={`mt-2 block text-right text-[11px] ${message.sender_id === user.id ? "text-green-100" : "text-slate-400"}`} datetime={message.created_at ?? ""}>{formatTime(message.created_at)}</time>
               </article>
@@ -107,8 +112,8 @@
         <form onsubmit={sendMessage} class="border-t border-slate-100 p-4">
           {#if messageForm.errors.body || errors.body}<p class="mb-2 text-sm text-red-700" role="alert">{messageForm.errors.body ?? errors.body}</p>{/if}
           <div class="flex items-end gap-2">
-            <textarea bind:value={messageForm.body} maxlength="2000" rows="2" aria-label="Message text" placeholder="Write a message…" class="min-w-0 flex-1 resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-[#176b3b] focus:outline-none focus:ring-2 focus:ring-[#176b3b]/20"></textarea>
-            <button type="submit" disabled={!messageForm.body.trim() || messageForm.processing} class="rounded-xl bg-[#176b3b] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0b482b] disabled:cursor-not-allowed disabled:bg-slate-300">{messageForm.processing ? "Sending…" : "Send"}</button>
+            <textarea bind:value={messageForm.body} maxlength="2000" rows="2" aria-label="Message text" placeholder="Write a message…" class={`min-w-0 flex-1 resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 ${theme.focus}`}></textarea>
+            <button type="submit" disabled={!messageForm.body.trim() || messageForm.processing} class={`rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 ${theme.button}`}>{messageForm.processing ? "Sending…" : "Send"}</button>
           </div>
         </form>
       {:else}

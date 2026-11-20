@@ -7,10 +7,14 @@ use App\Http\Controllers\Api\MessageApiController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\ProducerDashboardController;
 use App\Http\Controllers\Api\ProductApiController;
+use App\Http\Controllers\CustomerDashboardController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+
+Route::post('/mpesa/callback', [CustomerDashboardController::class, 'mpesaCallback'])
+    ->name('api.mpesa.callback');
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -22,7 +26,7 @@ Route::get('/health', function () {
 
         foreach ([
             'users', 'farms', 'products', 'orders', 'order_items', 'conversations', 'direct_messages',
-            'personal_access_tokens', 'password_reset_tokens', 'sessions',
+            'payments', 'mpesa_transactions', 'contact_messages', 'personal_access_tokens', 'password_reset_tokens', 'sessions',
         ] as $table) {
             if (! Schema::hasTable($table)) {
                 return response()->json([

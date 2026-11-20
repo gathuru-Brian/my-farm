@@ -4,8 +4,9 @@
   import DashboardWelcome from "../../components/DashboardWelcome.svelte";
   import MessageInbox from "../../components/MessageInbox.svelte";
   import PortalLayout from "../../components/PortalLayout.svelte";
+  import ProductImage from "../../components/ProductImage.svelte";
 
-  let { auth, products = [], orders = [], producers = [], conversations = [], flash } = $props();
+  let { auth, products = [], orders = [], producers = [], conversations = [], payments = [], flash } = $props();
   let activeView = $state("marketplace");
   let selectedCategory = $state("all");
   let selectedFarm = $state("all");
@@ -14,7 +15,13 @@
   let sortBy = $state("popular");
   let productSearch = $state("");
   let cart = $state({});
-  let orderForm = useForm({ items: [], delivery_address: "" });
+  let orderForm = useForm({ items: [], delivery_address: "", payment_method: "mpesa", mpesa_phone: "" });
+
+  $effect(() => {
+    if (!orderForm.mpesa_phone && auth.user.phone) {
+      orderForm.mpesa_phone = auth.user.phone;
+    }
+  });
   let selectedProduct = $state(null);
   let productDialog = $state(null);
   let productTrigger = $state(null);
@@ -66,6 +73,7 @@
   // Small insights from data the page already receives
   let activeOrders = $derived(orders.filter((o) => !["delivered", "cancelled"].includes(o.status)).length);
   let totalSpent = $derived(orders.filter((o) => o.status !== "cancelled").reduce((sum, o) => sum + Number(o.total_amount || 0), 0));
+  let unreadMessages = $derived(conversations.reduce((total, conversation) => total + Number(conversation.unread_count || 0), 0));
   let firstName = $derived((auth.user.full_name ?? "").trim().split(/\s+/)[0] || "there");
   let initials = $derived((auth.user.full_name ?? "?").split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase());
 
@@ -85,7 +93,7 @@
   let tabs = $derived([
     { view: "marketplace", label: "Marketplace", icon: "▦", badge: cartItems.length || null },
     { view: "orders", label: "My orders", icon: "📦", count: orders.length },
-    { view: "messages", label: "Messages", icon: "✉" },
+    { view: "messages", label: "Messages", icon: "✉", count: unreadMessages || undefined },
     { view: "profile", label: "Account", icon: "♙" },
   ]);
 
@@ -139,6 +147,34 @@
         orderForm.resetAndClearErrors();
         activeView = "orders";
       },
+      onError: (errors) => {
+        if (errors.payment_phone) {
+          cart = {};
+          activeView = "orders";
+        }
+      },
+    });
+  }
+
+  let checkingPayments = $state({});
+  let retryingPayments = $state({});
+
+  function queryMpesaPayment(payment) {
+    if (checkingPayments[payment.id]) return;
+    checkingPayments[payment.id] = true;
+    router.post(`/dashboard/payments/${payment.id}/mpesa/query`, {}, {
+      preserveScroll: true,
+      preserveState: true,
+      onFinish: () => { delete checkingPayments[payment.id]; },
+    });
+  }
+
+  function retryMpesaPayment(payment) {
+    if (retryingPayments[payment.id]) return;
+    retryingPayments[payment.id] = true;
+    router.post(`/dashboard/payments/${payment.id}/mpesa/retry`, { phone: payment.phone }, {
+      preserveScroll: true,
+      onFinish: () => { delete retryingPayments[payment.id]; },
     });
   }
 
@@ -159,8 +195,8 @@
 </script>
 
 <PortalLayout title="Customer dashboard" user={auth.user}>
-  <section class="dashboard-shell mx-auto max-w-[1500px] space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
-    <DashboardWelcome eyebrow="Customer portal" title={`Welcome back, ${firstName}`} description="Fresh produce sourced directly from trusted farms.">
+  <section class="dashboard-shell mx-auto max-w-[1500px] space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-8" data-dashboard-role="customer">
+    <DashboardWelcome accent="customer" eyebrow="Customer portal" title={`Welcome back, ${firstName}`} description="Fresh produce sourced directly from trusted farms.">
       {#snippet children()}
         <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <button type="button" class="rounded-2xl border border-white/15 bg-white/[0.09] px-3.5 py-3 text-left backdrop-blur transition hover:bg-white/[0.15]" onclick={() => (activeView = "orders")}>
@@ -179,9 +215,18 @@
       {/snippet}
     </DashboardWelcome>
 
-    <DashboardTabs tabs={tabs} activeView={activeView} onSelect={(view) => (activeView = view)} label="Customer dashboard sections" />
+    <div class="grid items-start gap-5 lg:grid-cols-[220px_minmax(0,1fr)] xl:gap-6">
+      <DashboardTabs
+        tabs={tabs}
+        activeView={activeView}
+        onSelect={(view) => (activeView = view)}
+        label="Customer dashboard sections"
+        heading="Your account"
+        description="Shop and manage your orders"
+        accent="customer"
+      />
 
-    <div class="min-w-0">
+      <div class="min-w-0">
 
         {#if flash?.status}
           <p class="mb-5 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-3.5 text-sm font-medium text-green-900" role="status"><span aria-hidden="true">✓</span> {flash.status}</p>
@@ -283,11 +328,7 @@
                 {@const inBasket = Number(cart[product.id] ?? 0)}
                 <article class={`${card} group overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-xl ${inBasket > 0 ? "ring-2 ring-[#176b3b]/40" : ""}`}>
                   <div class="relative overflow-hidden bg-[#edf4ee]">
-                    {#if product.image}
-                      <img src={product.image} alt={product.name} class="h-36 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-40" loading="lazy" />
-                    {:else}
-                      <div class="flex h-36 items-center justify-center bg-gradient-to-br from-[#d8e9b8] to-[#9cc27a] text-5xl sm:h-40" aria-hidden="true">🌿</div>
-                    {/if}
+                    <ProductImage src={product.image} name={product.name} category={product.category} className="h-36 w-full sm:h-40" imageClassName="transition duration-500 group-hover:scale-105" />
                     <span class="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-[#176b4a] shadow">✓ {product.farm_name ?? "Local farm"}</span>
                     {#if product.quantity_remaining <= 10}
                       <span class="absolute right-3 top-3 rounded-full bg-amber-300 px-3 py-1 text-xs font-bold text-amber-950 shadow">Only {product.quantity_remaining} left</span>
@@ -345,11 +386,7 @@
             <ul class="mt-3 divide-y divide-slate-100">
               {#each cartItems as item (item.id)}
                 <li class="flex items-center gap-2.5 py-3">
-                  {#if item.image}
-                    <img src={item.image} alt="" class="size-14 shrink-0 rounded-xl object-cover" />
-                  {:else}
-                    <span class="grid size-14 shrink-0 place-items-center rounded-xl bg-[#edf5e7] text-xl" aria-hidden="true">🌿</span>
-                  {/if}
+                  <ProductImage src={item.image} name={item.name} category={item.category} className="size-14 shrink-0 rounded-xl" showLabel={false} />
                   <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-semibold">{item.name}</p>
                     <p class="truncate text-xs text-slate-500">{item.farm_name ?? "Local farm"}</p>
@@ -372,7 +409,30 @@
               {#if orderForm.errors.delivery_address}
                 <p id="delivery-address-error" class="mt-1 text-sm text-red-700" role="alert">{orderForm.errors.delivery_address}</p>
               {/if}
-              <button type="button" class={`${btnPrimary} mt-4 w-full py-3.5 text-base`} disabled={!orderForm.delivery_address.trim() || orderForm.processing} onclick={placeOrder}>{orderForm.processing ? "Placing order…" : "Place order"}</button>
+              <fieldset class="mt-5">
+                <legend class="text-sm font-semibold">Payment method</legend>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                  <label class={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${orderForm.payment_method === "mpesa" ? "border-[#176b3b] bg-[#edf5e7]" : "border-slate-200 bg-white"}`}>
+                    <input type="radio" bind:group={orderForm.payment_method} value="mpesa" class="mt-0.5 accent-[#176b3b]" />
+                    <span><strong class="block">M-Pesa</strong><span class="mt-0.5 block text-xs text-slate-500">Pay securely from your phone</span></span>
+                  </label>
+                  <label class={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${orderForm.payment_method === "pay_on_delivery" ? "border-[#176b3b] bg-[#edf5e7]" : "border-slate-200 bg-white"}`}>
+                    <input type="radio" bind:group={orderForm.payment_method} value="pay_on_delivery" class="mt-0.5 accent-[#176b3b]" />
+                    <span><strong class="block">Pay on delivery</strong><span class="mt-0.5 block text-xs text-slate-500">Pay when your order arrives</span></span>
+                  </label>
+                </div>
+              </fieldset>
+              {#if orderForm.payment_method === "mpesa"}
+                <label for="mpesa-phone" class="mt-4 block text-sm font-semibold">M-Pesa phone number</label>
+                <input id="mpesa-phone" bind:value={orderForm.mpesa_phone} type="tel" autocomplete="tel" inputmode="tel" maxlength="30" placeholder="0712 345 678" class={`${field} mt-1.5`} aria-invalid={orderForm.errors.mpesa_phone || orderForm.errors.payment_phone ? "true" : undefined} />
+              {/if}
+              {#if orderForm.errors.mpesa_phone}
+                <p class="mt-1 text-sm text-red-700" role="alert">{orderForm.errors.mpesa_phone}</p>
+              {/if}
+              {#if orderForm.errors.payment_phone}
+                <p class="mt-1 text-sm text-red-700" role="alert">{orderForm.errors.payment_phone}</p>
+              {/if}
+              <button type="button" class={`${btnPrimary} mt-4 w-full py-3.5 text-base`} disabled={!orderForm.delivery_address.trim() || (orderForm.payment_method === "mpesa" && !orderForm.mpesa_phone.trim()) || orderForm.processing} onclick={placeOrder}>{orderForm.processing ? "Placing order…" : orderForm.payment_method === "mpesa" ? "Place order & pay" : "Place order"}</button>
               <p class="mt-3 text-center text-xs text-slate-500">You can cancel until the farmer starts preparing it.</p>
             </div>
           {/if}
@@ -388,6 +448,23 @@
             <button type="button" class={`${btnPrimary} mt-5`} onclick={() => (activeView = "marketplace")}>Browse the marketplace</button>
           </div>
         {:else}
+          {#if payments.length}
+            <div class="mt-5 space-y-2">
+              {#each payments.filter((payment) => payment.status !== "paid") as payment (payment.id)}
+                <article class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <div>
+                    <p class="text-sm font-bold text-amber-950">M-Pesa payment: {payment.status}</p>
+                    <p class="mt-0.5 text-xs text-amber-900/70">{payment.result_description ?? "Waiting for confirmation"} · {currency.format(payment.amount)}</p>
+                  </div>
+                  {#if payment.status === "failed"}
+                    <button type="button" class="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-950 disabled:cursor-wait disabled:opacity-60" disabled={retryingPayments[payment.id]} onclick={() => retryMpesaPayment(payment)}>{retryingPayments[payment.id] ? "Retrying…" : "Retry payment"}</button>
+                  {:else}
+                    <button type="button" class="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-950 disabled:cursor-wait disabled:opacity-60" disabled={checkingPayments[payment.id]} onclick={() => queryMpesaPayment(payment)}>{checkingPayments[payment.id] ? "Checking…" : "Check status"}</button>
+                  {/if}
+                </article>
+              {/each}
+            </div>
+          {/if}
           <div class="mt-5 space-y-5">
             {#each orders as order (order.id)}
               {@const step = progress.indexOf(order.status)}
@@ -425,6 +502,22 @@
                     <button type="button" class="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60" disabled={cancelling[order.id]} onclick={() => cancelOrder(order)}>{cancelling[order.id] ? "Cancelling…" : "Cancel order"}</button>
                   {/if}
                 </div>
+                {#if order.delivery_fee > 0 || order.courier_name || order.tracking_number || order.estimated_delivery_at}
+                  <dl class="mt-4 grid gap-3 rounded-xl bg-[#f4f8f5] p-4 text-sm sm:grid-cols-2">
+                    {#if order.delivery_fee > 0}
+                      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Quoted delivery fee</dt><dd class="mt-1 font-semibold text-[#173f2a]">{currency.format(order.delivery_fee)} <span class="font-normal text-slate-500">(separate from order total)</span></dd></div>
+                    {/if}
+                    {#if order.courier_name}
+                      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Courier</dt><dd class="mt-1 font-semibold text-[#173f2a]">{order.courier_name}</dd></div>
+                    {/if}
+                    {#if order.tracking_number}
+                      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tracking number</dt><dd class="mt-1 break-all font-semibold text-[#173f2a]">{order.tracking_number}</dd></div>
+                    {/if}
+                    {#if order.estimated_delivery_at}
+                      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated delivery</dt><dd class="mt-1 font-semibold text-[#173f2a]">{new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.estimated_delivery_at))}</dd></div>
+                    {/if}
+                  </dl>
+                {/if}
               </article>
             {/each}
           </div>
@@ -448,13 +541,14 @@
           </div>
         </article>
       </section>
-    {:else}
+    {:else if activeView === "messages"}
       <section class="mt-8">
         <h2 class="text-2xl font-bold tracking-tight">Messages with producers</h2>
         <p class="mb-5 mt-1 text-sm text-slate-500">Ask a farmer about their harvest or an order.</p>
-        <MessageInbox user={auth.user} {producers} {conversations} {errors} />
+        <MessageInbox user={auth.user} {producers} {conversations} {errors} accent="customer" />
       </section>
     {/if}
+      </div>
     </div>
   </section>
   {#if selectedProduct}
@@ -471,11 +565,7 @@
     >
       <section class="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div class="relative bg-[#edf4ee]">
-          {#if selectedProduct.image}
-            <img src={selectedProduct.image} alt={selectedProduct.name} class="h-56 w-full object-cover sm:h-72" />
-          {:else}
-            <div class="grid h-56 place-items-center bg-gradient-to-br from-[#d8e9b8] to-[#9cc27a] text-6xl sm:h-72" aria-hidden="true">🌿</div>
-          {/if}
+          <ProductImage src={selectedProduct.image} name={selectedProduct.name} category={selectedProduct.category} className="h-56 w-full sm:h-72" />
           <button type="button" class="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/95 text-xl font-bold text-[#173f2a] shadow" aria-label="Close product details" onclick={closeProductDetails}>×</button>
         </div>
         <div class="p-6 sm:p-8">

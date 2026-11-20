@@ -3,7 +3,7 @@
   import SiteHeader from "../components/SiteHeader.svelte";
   import SiteFooter from "../components/SiteFooter.svelte";
 
-  let { auth } = $props();
+  let { auth, flash } = $props();
 
   let form = useForm({ name: "", email: "", phone: "", topic: "General question", message: "" });
   let sent = $state(false);
@@ -45,8 +45,8 @@
         {#if sent}
           <div class="py-10 text-center" role="status">
             <span class="mx-auto grid size-14 place-items-center rounded-full bg-[#edf5e7] text-2xl" aria-hidden="true">✓</span>
-            <h2 class="mt-5 text-2xl font-bold">Message sent</h2>
-            <p class="mt-2 text-slate-600">Thanks for reaching out. We'll reply by email within one working day.</p>
+            <h2 class="mt-5 text-2xl font-bold">Message received</h2>
+            <p class="mt-2 text-slate-600">{flash?.status ?? "Thanks for reaching out. We'll reply by email within one working day."}</p>
             <button class="mt-6 font-bold text-[#28623a] hover:underline" onclick={() => (sent = false)}>Send another message</button>
           </div>
         {:else}

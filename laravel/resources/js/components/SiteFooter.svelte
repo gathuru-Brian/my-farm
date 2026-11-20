@@ -15,8 +15,9 @@
 <footer class="marketing-footer text-green-50" aria-label="Site footer">
   <div class="mx-auto grid max-w-7xl gap-10 px-5 py-14 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr] lg:px-8">
     <div>
-      <Link href="/" class="flex items-center gap-2.5 text-xl font-extrabold">
-        <span class="grid size-9 place-items-center rounded-xl bg-white/10" aria-hidden="true">🌱</span> Modern Farms
+      <Link href="/" class="flex items-center gap-2.5 text-xl font-extrabold" aria-label="Modern Farms home">
+        <img src="/images/modern-farms-mark.svg" alt="" class="size-10" aria-hidden="true" />
+        <span>Modern Farms</span>
       </Link>
       <p class="mt-4 max-w-xs text-sm leading-6 text-green-100/70">Farm fresh. Direct to you. Connecting Kenyan farmers with the people who value good food.</p>
     </div>
